@@ -13,11 +13,13 @@ import pickle
 class NBALeague(object):
     player_objects_list_pickle_path_regex = os.path.join(pickles_folder_path, 'nba_players_objects_{season}.pickle')
 
-    def __init__(self, season=default_season, reinitialize_player_objects=False):
+    def __init__(self, season=default_season, initialize_stat_classes=True, reinitialize_player_objects=False):
         self.season = season
         self.player_dicts_list = goldsberry.PlayerList().players()
-        player_objects_list_pickle_path = self.player_objects_list_pickle_path_regex.format(season=self.season[:4])
         self.player_objects_list = []
+        if initialize_stat_classes:
+            self.initialize_stat_classes()
+        player_objects_list_pickle_path = self.player_objects_list_pickle_path_regex.format(season=self.season[:4])
         if reinitialize_player_objects:
             # Warning - Takes a LONG time - A few hours
             dicts_to_fetch = len(self.player_dicts_list)
@@ -60,7 +62,7 @@ class NBALeague(object):
             return filtered_player_objects_list[0]
 
     @staticmethod
-    def get_point_per_possession_league_average_for_specific_play_type(play_type_to_search):
+    def get_offensive_point_per_possession_league_average_for_specific_play_type(play_type_to_search):
         """
         Name
         :param play_type_to_search: play type description
@@ -77,7 +79,7 @@ class NBALeague(object):
         return points_scored / possessions
 
     def get_point_per_possession_league_average_for_post_ups(self):
-        return self.get_point_per_possession_league_average_for_specific_play_type('postup')
+        return self.get_offensive_point_per_possession_league_average_for_specific_play_type('postup')
 
     def get_league_all_shooters_lineups_dicts(self):
         with open(nba_teams_all_shooters_lineups_dicts_path_regex.format(season=self.season), 'rb') as file1:
@@ -86,12 +88,12 @@ class NBALeague(object):
 
 
 if __name__ == "__main__":
-    nba_league_2015 = NBALeague(2015, reinitialize_player_objects=False)
+    nba_league_2015 = NBALeague(reinitialize_player_objects=False)
 
     # def print_league_playtypes():
     #     for play_type in filter(lambda game_object: not game_object.startswith('_'), dir(goldsberry.league.playtype)):
     #         print '{play_type_to_print} - {ppp_to_print}'.format(play_type_to_print=play_type,
-    #                                                              ppp_to_print=nba_league_2015.get_point_per_possession_league_average_for_specific_play_type(play_type))
+    #                                                              ppp_to_print=nba_league_2015.get_offensive_point_per_possession_league_average_for_specific_play_type(play_type))
     #
     # print_league_playtypes()
 
