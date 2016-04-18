@@ -21,3 +21,13 @@ class PlayerDidNotPlayAGame(Exception):
 class CouldNotInitializePlayerObject(Exception):
     def __init__(self, message=''):
         self.message = message
+
+
+class TeamObjectIsNotSet(Exception):
+    def __init__(self, message=''):
+        self.message = message
+
+
+class PlayersObjectsAreNotSet(Exception):
+    def __init__(self, message=''):
+        self.message = message

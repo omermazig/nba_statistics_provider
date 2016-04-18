@@ -4,6 +4,7 @@ from playerScripts import NBAPlayer
 from utilsScripts import pickles_folder_path
 from teamScripts import nba_teams_all_shooters_lineups_dicts_path_regex
 from my_exceptions import NoSuchPlayer, TooMuchPlayers
+from goldsberry.apiparams import default_season
 import goldsberry
 import os
 import pickle
@@ -12,10 +13,10 @@ import pickle
 class NBALeague(object):
     player_objects_list_pickle_path_regex = os.path.join(pickles_folder_path, 'nba_players_objects_{season}.pickle')
 
-    def __init__(self, season=2015, reinitialize_player_objects=False):
+    def __init__(self, season=default_season, reinitialize_player_objects=False):
         self.season = season
         self.player_dicts_list = goldsberry.PlayerList().players()
-        player_objects_list_pickle_path = self.player_objects_list_pickle_path_regex.format(season=self.season)
+        player_objects_list_pickle_path = self.player_objects_list_pickle_path_regex.format(season=self.season[:4])
         self.player_objects_list = []
         if reinitialize_player_objects:
             # Warning - Takes a LONG time - A few hours
@@ -26,6 +27,8 @@ class NBALeague(object):
                                                          dicts_to_fetch
                                                          ))
                 player_object = NBAPlayer(season=self.season, PLAYERCODE=player_dict["PLAYERCODE"])
+                # current_team_object is a cached property, so we force the class to initialize it
+                a = player_object.current_team_object
                 self.player_objects_list.append(player_object)
 
             with open(player_objects_list_pickle_path, 'wb') as file1:
@@ -36,8 +39,18 @@ class NBALeague(object):
                 self.player_objects_list = pickle.load(file1)
                 """:type : list[NBAPlayer]"""
 
+    def initialize_stat_classes(self):
+        public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.league) if
+                                     not stat_class1.startswith('_')]
+
+        for stat_class_name in public_stat_classes_names:
+            stat_class = getattr(goldsberry.player, stat_class_name)(self.season)
+            """:type : NbaDataProvider"""
+            setattr(self, stat_class_name, stat_class)
+
     def get_player_object_by_name(self, player_name):
-        filtered_player_objects_list = [x for x in self.player_objects_list if x.player_name == player_name]
+        filtered_player_objects_list = [player_object for player_object in self.player_objects_list if
+                                        player_name in player_object.player_name]
         filtered_player_objects_list_length = len(filtered_player_objects_list)
         if filtered_player_objects_list_length == 0:
             raise NoSuchPlayer('There was no player matching the given name')
@@ -46,7 +59,8 @@ class NBALeague(object):
         else:
             return filtered_player_objects_list[0]
 
-    def get_point_per_possession_league_average_for_specific_play_type(self, play_type_to_search):
+    @staticmethod
+    def get_point_per_possession_league_average_for_specific_play_type(play_type_to_search):
         """
         Name
         :param play_type_to_search: play type description
@@ -75,7 +89,7 @@ if __name__ == "__main__":
     nba_league_2015 = NBALeague(2015, reinitialize_player_objects=False)
 
     # def print_league_playtypes():
-    #     for play_type in filter(lambda x: not x.startswith('_'), dir(goldsberry.league.playtype)):
+    #     for play_type in filter(lambda game_object: not game_object.startswith('_'), dir(goldsberry.league.playtype)):
     #         print '{play_type_to_print} - {ppp_to_print}'.format(play_type_to_print=play_type,
     #                                                              ppp_to_print=nba_league_2015.get_point_per_possession_league_average_for_specific_play_type(play_type))
     #
@@ -86,19 +100,20 @@ if __name__ == "__main__":
 
     def is_over_200_fga(player_object):
         try:
-            return player_object.general_splits.overall()[0]["FGA"] > 200
+            return player_object.player_stats_dict[0]["FGA"] > 200
         except IndexError:
             return False
 
 
     def is_over_50_assists(player_object):
         try:
-            return player_object.general_splits.overall()[0]['AST'] > 50
+            return player_object.player_stats_dict[0]['AST'] > 50
         except IndexError:
             return False
 
 
-    player_objects_list = filter(is_over_50_assists, player_objects_list)
+    player_objects_list = [my_player_object for my_player_object in player_objects_list if
+                           is_over_50_assists(my_player_object)]
 
     list1 = [(my_player_object.player_name,
               my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots())
