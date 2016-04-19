@@ -5,7 +5,6 @@ import playerScripts
 from gameScripts import NBAGameTeam
 from utilsScripts import join_advanced_lineup_dicts, is_lineup_valid, pickles_folder_path
 from goldsberry.apiparams import default_season
-from my_exceptions import PlayersObjectsAreNotSet
 from cached_property import cached_property
 
 teams_id_dict_pickle_path = os.path.join(pickles_folder_path, "nba_teams_numbers_dict.pickle")
@@ -21,14 +20,15 @@ class NBATeam(object):
     def __init__(self, team_name_or_id, season=default_season, initialize_stat_classes=True):
         """
 
-        :rtype : An NBA team object
+        :return: An NBA team object
+        :rtype : NBATeam
         """
         if type(team_name_or_id) is int:
             self.team_id = team_name_or_id
         elif type(team_name_or_id) is str:
             self.team_id = teams_id_dict[team_name_or_id]
         else:
-            raise Exception('Constructor only receives string ot integer')
+            raise Exception('Constructor only receives string or integer')
         self.season = season
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -58,7 +58,7 @@ class NBATeam(object):
         players_objects_list = []
         for player_dict in goldsberry.team.roster(team_id=self.team_id, season=self.season).players():
             try:
-                nba_player_object = playerScripts.NBAPlayer(PERSON_ID=player_dict['PLAYER_ID'],
+                nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_dict['PLAYER_ID'],
                                                             season=self.season,
                                                             initialize_stat_classes=initialize_stat_classes)
                 players_objects_list.append(nba_player_object)
@@ -96,7 +96,7 @@ class NBATeam(object):
                 is_lineup_valid(lineup_dict, white_list, black_list)]
 
     def get_all_shooters_lineup_dicts(self, attempts_limit=20):
-        only_non_shooters_player_objects = [player_object for player_object in self._players_objects_list
+        only_non_shooters_player_objects = [player_object for player_object in self.current_players_objects
                                             if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)]
         all_shooters_lineup_dicts = self.get_filtered_lineup_dicts(black_list=only_non_shooters_player_objects)
         return all_shooters_lineup_dicts

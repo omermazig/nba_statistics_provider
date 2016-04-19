@@ -1,41 +1,45 @@
 from __future__ import print_function
 from __future__ import print_function
 from __future__ import division
-from requests import ConnectionError
-from retrying import retry
 import teamScripts
 from gameScripts import NBAGamePlayer
-from utilsScripts import join_player_single_game_stats, \
-    get_effective_field_goal_relevant_data_from_multiple_shot_charts, \
-    get_effective_field_goal_percentage_from_multiple_shot_charts, calculate_effective_field_goal_percent, \
-    csvs_folder_path
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, TeamObjectIsNotSet
+import utilsScripts
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam
 import goldsberry
 from goldsberry.masterclass import NbaDataProvider
 from cached_property import cached_property
 
 
 class NBAPlayer(object):
-    @retry(stop_max_delay=100000, wait_fixed=100,
-           retry_on_exception=lambda exception: isinstance(exception, ConnectionError))
-    def __init__(self, season=goldsberry.apiparams.default_season, initialize_stat_classes=True, **kwargs):
+    # @retry(stop_max_attempt_number=3, wait_fixed=5000,
+    #        retry_on_exception=lambda exception: isinstance(exception, ConnectionError))
+    def __init__(self, player_name_or_id, season=goldsberry.apiparams.default_season, initialize_stat_classes=True):
         """
-        :param kwargs: dict where the key is a valid key name, and the value is the value you want to filter player by
-        :type kwargs: dict
-        :return: an object of an nba player
-        :rtype: NBAPlayer
+        NBA player object
+        :param player_name_or_id: can be a player id or full name with an underline ('steph_curry').
+        :type player_name_or_id: int or str
+        :param season: Season to initialize player's data by
+        :type season: str
+        :param initialize_stat_classes: Whether to initialize player's stat classes or not (take a little time)
+        :type initialize_stat_classes: bool
         """
         self.season = season
-        if kwargs is None:
-            raise NoSuchPlayer('You have to pass at least one valid parameter')
-        filtered_player_dicts_list = goldsberry.PlayerList().players()
-        for key, value in kwargs.items():
-            filtered_player_dicts_list = [dict1 for dict1 in filtered_player_dicts_list if dict1[key] == value]
 
-        filtered_player_dicts_list_length = len(filtered_player_dicts_list)
-        if filtered_player_dicts_list_length == 0:
+        if type(player_name_or_id) is int:
+            identifying_key = 'PERSON_ID'
+            filter_function = lambda dict1: player_name_or_id == dict1[identifying_key]
+        elif type(player_name_or_id) is str:
+            identifying_key = 'PLAYERCODE'
+            filter_function = lambda dict1: player_name_or_id in dict1[identifying_key]
+        else:
+            raise Exception('Constructor only receives string or integer')
+
+        filtered_player_dicts_list = goldsberry.PlayerList().players()
+        filtered_player_dicts_list = [dict1 for dict1 in filtered_player_dicts_list if filter_function(dict1)]
+        number_of_matching_player_dicts = len(filtered_player_dicts_list)
+        if number_of_matching_player_dicts == 0:
             raise NoSuchPlayer('There was no player matching the given parameters')
-        elif filtered_player_dicts_list_length > 1:
+        elif number_of_matching_player_dicts > 1:
             raise TooMuchPlayers('There were more then one player matching the given parameters')
         else:
             self.player_dict = filtered_player_dicts_list[0]
@@ -128,7 +132,8 @@ class NBAPlayer(object):
     #     if total_shots_after_result == 0:
     #         return 0, 0
     #     else:
-    #         return total_distance_of_defenders_on_shots_after_result / total_shots_after_result, total_shots_after_result
+    #         return total_distance_of_defenders_on_shots_after_result / total_shots_after_result, \
+    #                total_shots_after_result
     #
     # def get_average_defender_distance_after_makes(self):
     #     """
@@ -168,7 +173,7 @@ class NBAPlayer(object):
         if player_fga == 0:
             return 0, 0
         else:
-            return calculate_effective_field_goal_percent(player_fgm, player_fg3m, player_fga), player_fga
+            return utilsScripts.calculate_effective_field_goal_percent(player_fgm, player_fg3m, player_fga), player_fga
 
     def get_effective_field_goal_percentage_after_makes(self):
         return self._get_effective_field_goal_percentage_depending_on_previous_shot_result(1)
@@ -219,7 +224,8 @@ class NBAPlayer(object):
         if teammates_fga == 0:
             return 0, 0
         else:
-            return calculate_effective_field_goal_percent(teammates_fgm, teammates_fg3m, teammates_fga), teammates_fga
+            return utilsScripts.calculate_effective_field_goal_percent(teammates_fgm, teammates_fg3m,
+                                                                       teammates_fga), teammates_fga
 
     def get_teammates_effective_field_goal_percentage_from_passes(self):
         """
@@ -227,7 +233,8 @@ class NBAPlayer(object):
         :rtype: tuple(float)
         """
         with self.passing_dashboard.object_manager.reinitialize_data_with_new_parameters(PerMode='Totals'):
-            return get_effective_field_goal_percentage_from_multiple_shot_charts(self.passing_dashboard.passes_made())
+            return utilsScripts.get_effective_field_goal_percentage_from_multiple_shot_charts(
+                self.passing_dashboard.passes_made())
 
     def get_teammates_effective_field_goal_percentage_without_passes(self):
         """
@@ -237,7 +244,8 @@ class NBAPlayer(object):
         teammates_fgm, teammates_fg3m, teammates_fga = self._get_teammates_relevant_shooting_stats()
         with self.passing_dashboard.object_manager.reinitialize_data_with_new_parameters(PerMode='Totals'):
             teammates_fgm_from_player_passes, teammates_fg3m_from_player_passes, teammates_fga_from_player_passes = \
-                get_effective_field_goal_relevant_data_from_multiple_shot_charts(self.passing_dashboard.passes_made())
+                utilsScripts.get_effective_field_goal_relevant_data_from_multiple_shot_charts(
+                    self.passing_dashboard.passes_made())
 
         teammates_fgm_without_player_pass = teammates_fgm - teammates_fgm_from_player_passes
         teammates_fg3m_without_player_pass = teammates_fg3m - teammates_fg3m_from_player_passes
@@ -245,9 +253,9 @@ class NBAPlayer(object):
         if teammates_fga_without_player_pass == 0:
             return 0, 0
         else:
-            return calculate_effective_field_goal_percent(teammates_fgm_without_player_pass,
-                                                          teammates_fg3m_without_player_pass,
-                                                          teammates_fga_without_player_pass), \
+            return utilsScripts.calculate_effective_field_goal_percent(teammates_fgm_without_player_pass,
+                                                                       teammates_fg3m_without_player_pass,
+                                                                       teammates_fga_without_player_pass), \
                    teammates_fga_without_player_pass
 
     def get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
@@ -264,13 +272,17 @@ class NBAPlayer(object):
             self.get_teammates_effective_field_goal_percentage_without_passes()
         if teammates_number_of_shots_after_a_pass_from_player == 0 or teammates_number_of_shots_not_after_a_pass_from_player == 0:
             return 0, 0
-        return (
-                   teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player), teammates_number_of_shots_after_a_pass_from_player
+        return (teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player), \
+               teammates_number_of_shots_after_a_pass_from_player
 
-    def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string):
+    def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
+                                                         is_percentage_diff=False):
         function_result, number_of_shots = condition_func()
         if type(function_result) is float and -1 <= function_result <= 1:
-            function_result = "{0:.2f}%".format(function_result * 100)
+            if is_percentage_diff:
+                function_result = "{0:+.2f}%".format(function_result * 100)
+            else:
+                function_result = "{0:.2f}%".format(function_result * 100)
         print("{player_name} {condition} - {function_result} - on {number_of_shots} shots".format(
             player_name=self.player_name,
             condition=condition_string,
@@ -302,7 +314,7 @@ class NBAPlayer(object):
     def print_passing_info(self):
         self.print_field_goal_percentage_in_a_given_condition(
             self.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots,
-            "- boost in teammates %EFG after a pass from a player")
+            "- change in teammates %EFG after a pass from a player")
 
     def get_most_frequent_passer_to_player(self):
         if not self.passing_dashboard.passes_received():
@@ -357,7 +369,7 @@ class NBAPlayer(object):
         return all_time_game_logs
 
     def get_all_time_per_game_stats(self):
-        return join_player_single_game_stats(self.get_all_time_game_logs())
+        return utilsScripts.join_player_single_game_stats(self.get_all_time_game_logs())
 
     def get_all_time_game_objects(self, initialize_stat_classes=False):
         player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
@@ -372,7 +384,7 @@ class NBAPlayer(object):
         return all_time_national_tv_game_objects
 
     def get_national_tv_all_time_per_game_stats(self):
-        return join_player_single_game_stats(self.get_national_tv_all_time_game_objects())
+        return utilsScripts.join_player_single_game_stats(self.get_national_tv_all_time_game_objects())
 
     def get_not_national_tv_all_time_game_objects(self):
         all_time_game_objects = self.get_all_time_game_objects()
@@ -381,7 +393,7 @@ class NBAPlayer(object):
         return all_time_not_national_tv_game_objects
 
     def get_not_national_tv_all_time_per_game_stats(self):
-        return join_player_single_game_stats(self.get_not_national_tv_all_time_game_objects())
+        return utilsScripts.join_player_single_game_stats(self.get_not_national_tv_all_time_game_objects())
 
     def get_effective_field_goal_percentage_on_contested_shots_outside_10_feet(self):
         """
@@ -391,11 +403,12 @@ class NBAPlayer(object):
         """
         very_tight_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
         tight_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
-        for dict_to_match in self.shot_dashboard.closest_defender_10ft():
-            if dict_to_match['CLOSE_DEF_DIST_RANGE'] == '0-2 Feet - Very Tight':
-                very_tight_shots_dict = dict_to_match
-            elif dict_to_match['CLOSE_DEF_DIST_RANGE'] == '2-4 Feet - Tight':
-                tight_shots_dict = dict_to_match
+        with self.shot_dashboard.object_manager.reinitialize_data_with_new_parameters(PerMode='Totals'):
+            for dict_to_match in self.shot_dashboard.closest_defender_10ft():
+                if dict_to_match['CLOSE_DEF_DIST_RANGE'] == '0-2 Feet - Very Tight':
+                    very_tight_shots_dict = dict_to_match
+                elif dict_to_match['CLOSE_DEF_DIST_RANGE'] == '2-4 Feet - Tight':
+                    tight_shots_dict = dict_to_match
 
         contested_field_goal_makes = very_tight_shots_dict["FGM"] + tight_shots_dict["FGM"]
         contested_field_goal_attempts = very_tight_shots_dict["FGA"] + tight_shots_dict["FGA"]
@@ -403,9 +416,10 @@ class NBAPlayer(object):
         if contested_field_goal_attempts == 0:
             return 0, 0
         else:
-            effective_field_goal_percentage = calculate_effective_field_goal_percent(contested_field_goal_makes,
-                                                                                     contested_3_pointer_makes,
-                                                                                     contested_field_goal_attempts)
+            effective_field_goal_percentage = utilsScripts.calculate_effective_field_goal_percent(
+                contested_field_goal_makes,
+                contested_3_pointer_makes,
+                contested_field_goal_attempts)
             return effective_field_goal_percentage, contested_field_goal_attempts
 
     def get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet(self):
@@ -428,9 +442,10 @@ class NBAPlayer(object):
         if uncontested_field_goal_attempts == 0:
             return 0, 0
         else:
-            effective_field_goal_percentage = calculate_effective_field_goal_percent(uncontested_field_goal_makes,
-                                                                                     uncontested_3_pointer_makes,
-                                                                                     uncontested_field_goal_attempts)
+            effective_field_goal_percentage = utilsScripts.calculate_effective_field_goal_percent(
+                uncontested_field_goal_makes,
+                uncontested_3_pointer_makes,
+                uncontested_field_goal_attempts)
             return effective_field_goal_percentage, uncontested_field_goal_attempts
 
 
@@ -446,7 +461,7 @@ if __name__ == "__main__":
     ]
     selected_season = 2015
     for player_name in players_names_list:
-        nba_player = NBAPlayer(PLAYERCODE=player_name)
+        nba_player = NBAPlayer(player_name_or_id=player_name)
         b = nba_player.shot_dashboard.overall()
         a = nba_player.get_all_time_per_game_stats()
         nba_player.print_passing_info()

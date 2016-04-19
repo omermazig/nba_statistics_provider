@@ -114,8 +114,6 @@ def convert_dicts_into_csv(dicts_to_convert, csv_path):
     if not type(dicts_to_convert) == list:
         dicts_to_convert = [dicts_to_convert]
     with open(csv_path, 'w') as csvfile:
-        import pdb;
-        pdb.set_trace()
         fieldnames = ['category'] + dicts_to_convert[0].keys()
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -260,7 +258,7 @@ def is_lineup_all_shooters(lineup_dict, attempts_limit=20):
     """
     for player_id in _get_list_of_players_ids_from_lineup_dict(lineup_dict):
         from playerScripts import NBAPlayer
-        player_object = NBAPlayer(PERSON_ID=player_id)
+        player_object = NBAPlayer(player_name_or_id=player_id)
         if not player_object.is_three_point_shooter(attempts_limit=attempts_limit):
             return False
     else:

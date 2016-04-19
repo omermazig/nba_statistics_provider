@@ -1,4 +1,3 @@
-import dateutil.parser
 import goldsberry
 from goldsberry import apiconvertor
 from goldsberry.apiparams import default_season
