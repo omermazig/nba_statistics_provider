@@ -1,6 +1,10 @@
 from __future__ import division
 import functools
 import os
+import pickle
+
+from leagueScripts import league_object_pickle_path_regex
+
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -263,3 +267,10 @@ def is_lineup_all_shooters(lineup_dict, attempts_limit=20):
             return False
     else:
         return True
+
+
+def get_cached_league_object(season='2015'):
+    with open(league_object_pickle_path_regex.format(season=season),
+              "rb") as file1:
+        player_objects_2015 = pickle.load(file1)
+    return player_objects_2015

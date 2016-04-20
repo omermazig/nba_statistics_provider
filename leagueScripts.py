@@ -7,15 +7,18 @@ from goldsberry.apiparams import default_season
 import goldsberry
 import os
 import pickle
+import time
+
+league_object_pickle_path_regex = os.path.join(pickles_folder_path, 'league_object_{season}.pickle')
 
 
 class PlayTypeLeagueAverage(object):
-    def __init__(self, offensive_or_defensive):
+    def __init__(self):
         playtype_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.playtype) if
                                   not stat_class1.startswith('_')]
         for playtype_class_name in playtype_classes_names:
             value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name,
-                                                                        offensive_or_defensive)
+                                                                        'offensive')
             setattr(self, playtype_class_name, value)
 
     @staticmethod
@@ -40,38 +43,27 @@ class PlayTypeLeagueAverage(object):
         return points_scored / possessions
 
 
-class PlayTypeOffensiveLeagueAverage(PlayTypeLeagueAverage):
-    def __init__(self):
-        PlayTypeLeagueAverage.__init__(self, 'offensive')
-
-
-class PlayTypeDefensiveLeagueAverage(PlayTypeLeagueAverage):
-    def __init__(self):
-        PlayTypeLeagueAverage.__init__(self, 'defensive')
-
-
 class NBALeague(object):
-    league_object_pickle_path_regex = os.path.join(pickles_folder_path, 'league_object_{season}.pickle')
-
     def __init__(self, season=default_season, initialize_stat_classes=True, initialize_player_objects=False):
         self.season = season
         self.player_dicts_list = goldsberry.PlayerList().players()
         self.player_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
-            self.playtype_offense = PlayTypeOffensiveLeagueAverage()
-            self.playtype_defense = PlayTypeDefensiveLeagueAverage()
-        league_object_pickle_path = self.league_object_pickle_path_regex.format(season=self.season[:4])
+            self.playtype = PlayTypeLeagueAverage()
+        league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         # Warning - Takes a LONG time - A few hours
         number_of_dicts_to_fetch = len(self.player_dicts_list)
         if initialize_player_objects:
             for i in range(len(self.player_dicts_list)):
                 player_dict = self.player_dicts_list[i]
+                time.sleep(0.1)
                 print('Fetching %s dict (%s / %s)...' % (player_dict["PLAYERCODE"],
                                                          (i + 1),
                                                          number_of_dicts_to_fetch
                                                          ))
                 player_object = NBAPlayer(player_name_or_id=player_dict["PLAYERCODE"], season=self.season)
+                time.sleep(0.1)
                 print('Initializing %s team object (%s / %s)...' % (player_dict["PLAYERCODE"],
                                                                     (i + 1),
                                                                     number_of_dicts_to_fetch
