@@ -1,18 +1,19 @@
 import pickle
 import os
-import goldsberry
-import playerScripts
-from gameScripts import NBAGameTeam
-from utilsScripts import join_advanced_lineup_dicts, is_lineup_valid, pickles_folder_path
-from goldsberry.apiparams import default_season
 from cached_property import cached_property
 
-teams_id_dict_pickle_path = os.path.join(pickles_folder_path, "nba_teams_numbers_dict.pickle")
+import goldsberry
+import playerScripts
+import gameScripts
+import utilsScripts
+from goldsberry.apiparams import default_season
+
+teams_id_dict_pickle_path = os.path.join(utilsScripts.pickles_folder_path, "nba_teams_numbers_dict.pickle")
 with open(teams_id_dict_pickle_path, 'rb') as file1:
     teams_id_dict = pickle.load(file1)
     """:type : dict"""
 
-nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(pickles_folder_path,
+nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(utilsScripts.pickles_folder_path,
                                                                'nba_teams_all_shooters_lineups_dicts_{season}.pickle')
 
 
@@ -75,7 +76,7 @@ class NBATeam(object):
                            not my_stat_class.startswith('_')]:
             stat_class_function = getattr(goldsberry.team, stat_class)
             setattr(self, stat_class, stat_class_function(team_id=self.team_id, season=self.season))
-        self.games_summary_dicts = [NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
+        self.games_summary_dicts = [gameScripts.NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
 
     def get_filtered_lineup_dicts(self, white_list=None, black_list=None):
         """
@@ -93,7 +94,7 @@ class NBATeam(object):
             black_list = []
 
         return [lineup_dict for lineup_dict in self.lineups.lineups() if
-                is_lineup_valid(lineup_dict, white_list, black_list)]
+                utilsScripts.is_lineup_valid(lineup_dict, white_list, black_list)]
 
     def get_all_shooters_lineup_dicts(self, attempts_limit=20):
         only_non_shooters_player_objects = [player_object for player_object in self.current_players_objects
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     for team_name, team_id in teams_id_dict.items():
         team_object = NBATeam(team_id)
         only_shooters_team_lineups = team_object.get_all_shooters_lineup_dicts()
-        team_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_team_lineups)
+        team_all_shooters_advanced_stats = utilsScripts.join_advanced_lineup_dicts(only_shooters_team_lineups)
         league_dict[team_name] = (only_shooters_team_lineups, team_all_shooters_advanced_stats)
     with open(nba_teams_all_shooters_lineups_dicts_path_regex.format(season=my_season), 'wb') as file1:
         pickle.dump(league_dict, file1)

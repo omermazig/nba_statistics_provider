@@ -1,13 +1,15 @@
 from __future__ import print_function
 from __future__ import print_function
 from __future__ import division
+from cached_property import cached_property
+
 import teamScripts
-from gameScripts import NBAGamePlayer
+import gameScripts
 import utilsScripts
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam
 import goldsberry
+
 from goldsberry.masterclass import NbaDataProvider
-from cached_property import cached_property
 
 
 class NBAPlayer(object):
@@ -373,7 +375,7 @@ class NBAPlayer(object):
 
     def get_all_time_game_objects(self, initialize_stat_classes=False):
         player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
-        player_all_time_game_objects = [NBAGamePlayer(game_log, initialize_stat_classes) for game_log in
+        player_all_time_game_objects = [gameScripts.NBAGamePlayer(game_log, initialize_stat_classes) for game_log in
                                         player_all_time_game_logs]
         return player_all_time_game_objects
 

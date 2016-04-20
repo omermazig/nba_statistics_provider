@@ -1,15 +1,16 @@
 from __future__ import print_function
 from __future__ import division
-from playerScripts import NBAPlayer
-from utilsScripts import pickles_folder_path
-from my_exceptions import NoSuchPlayer, TooMuchPlayers
-from goldsberry.apiparams import default_season
-import goldsberry
 import os
 import pickle
 import time
 
-league_object_pickle_path_regex = os.path.join(pickles_folder_path, 'league_object_{season}.pickle')
+import playerScripts
+import utilsScripts
+from my_exceptions import NoSuchPlayer, TooMuchPlayers
+from goldsberry.apiparams import default_season
+import goldsberry
+
+league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
 
 
 class PlayTypeLeagueAverage(object):
@@ -62,7 +63,7 @@ class NBALeague(object):
                                                          (i + 1),
                                                          number_of_dicts_to_fetch
                                                          ))
-                player_object = NBAPlayer(player_name_or_id=player_dict["PLAYERCODE"], season=self.season)
+                player_object = playerScripts.NBAPlayer(player_name_or_id=player_dict["PLAYERCODE"], season=self.season)
                 time.sleep(0.1)
                 print('Initializing %s team object (%s / %s)...' % (player_dict["PLAYERCODE"],
                                                                     (i + 1),
