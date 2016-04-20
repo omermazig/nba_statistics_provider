@@ -99,6 +99,13 @@ class NBALeague(object):
     def get_league_all_shooters_lineups_dicts(self):
         raise NotImplemented
 
+    @staticmethod
+    def get_cached_league_object(season='2015'):
+        with open(league_object_pickle_path_regex.format(season=season),
+                  "rb") as file1:
+            player_objects_2015 = pickle.load(file1)
+        return player_objects_2015
+
 
 if __name__ == "__main__":
     nba_league_2015 = NBALeague(initialize_player_objects=False)

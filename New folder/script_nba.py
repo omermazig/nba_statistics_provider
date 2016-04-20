@@ -7,9 +7,8 @@ path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(path)
 from playerScripts import NBAPlayer
 from teamScripts import NBATeam
-from leagueScripts import NBALeague, league_object_pickle_path_regex
+from leagueScripts import NBALeague
 from gameScripts import NBAGame, NBASingleSeasonGames
-from utilsScripts import get_cached_league_object
 
 sys.path.remove(path)
 import goldsberry
