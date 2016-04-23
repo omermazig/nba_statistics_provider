@@ -35,9 +35,21 @@ class NBAGame(object):
                 setattr(self, stat_class_name, stat_class)
 
     def get_broadcasting_network(self):
+        """
+
+        :return:
+        :rtype:str
+        """
         return goldsberry.game.boxscore_summary(self.game_id).game_summary()[0]['NATL_TV_BROADCASTER_ABBREVIATION']
 
     def is_game_on_national_tv(self, broadcasters_list=None):
+        """
+
+        :param broadcasters_list:
+        :type broadcasters_list:list[str]
+        :return:
+        :rtype: bool
+        """
         if broadcasters_list is None:
             broadcasters_list = ['ESPN',
                                  'TNT',
@@ -48,6 +60,13 @@ class NBAGame(object):
         return self.get_broadcasting_network() in broadcasters_list
 
     def is_team_hosting_game(self, team_id):
+        """
+
+        :param team_id:
+        :type team_id:int
+        :return:
+        :rtype:bool
+        """
         return goldsberry.game.boxscore_summary(self.game_id).game_summary()[0]['HOME_TEAM_ID'] == team_id
 
 
@@ -57,6 +76,11 @@ class NBAGameTeam(NBAGame):
         self.team_id = self.game_dict['TEAM_ID']
 
     def is_home_game(self):
+        """
+
+        :return:
+        :rtype:bool
+        """
         self.is_team_hosting_game(self.team_id)
 
 
@@ -93,12 +117,33 @@ class NBASingleSeasonGames(object):
         """:type : list[NBAGame]"""
 
     def get_specific_team_home_games(self, team_id):
+        """
+
+        :param team_id:
+        :type team_id: int
+        :return:
+        :rtype: list[NBAGame]
+        """
         return [game for game in self.games_objects if game.game_dict['HOME_TEAM_ID'] == team_id]
 
     def get_specific_team_away_games(self, team_id):
+        """
+
+        :param team_id:
+        :type team_id: int
+        :return:
+        :rtype: list[NBAGame]
+        """
         return [game for game in self.games_objects if game.game_dict['VISITOR_TEAM_ID'] == team_id]
 
     def get_specific_team_games(self, team_id):
+        """
+
+        :param team_id:
+        :type team_id: int
+        :return:
+        :rtype: list[NBAGame]
+        """
         all_team_games = self.get_specific_team_home_games(team_id) + self.get_specific_team_away_games(team_id)
         all_team_games.sort(key=lambda game: game.game_dict['GAME_ID'])
         return all_team_games
