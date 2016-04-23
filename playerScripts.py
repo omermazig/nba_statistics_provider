@@ -2,6 +2,7 @@ from __future__ import print_function
 from __future__ import print_function
 from __future__ import division
 from cached_property import cached_property
+import webbrowser
 
 import teamScripts
 import gameScripts
@@ -10,6 +11,8 @@ from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam
 import goldsberry
 
 from goldsberry.masterclass import NbaDataProvider
+
+player_stat_page_regex = "http://stats.nba.com/player/#!/{player_id}/stats/"
 
 
 class NBAPlayer(object):
@@ -70,24 +73,43 @@ class NBAPlayer(object):
     @cached_property
     def player_stats_dict(self):
         """
-
-        :return:A generated object for the team that the player is currently playing for
-        :rtype:teamScripts.NBATeam
+        NOTE: We use the goldsberry originated object of 'career_stats' and not the class's one because we want this
+        property to be available even when the player's stat classes are not initialized.
+        :return: A dict that represent the player's basic total stats for the given season
+        :rtype: dict
         """
+        if not hasattr(self, 'career_stats'):
+            self._initialize_stat_class('career_stats')
         with self.career_stats.object_manager.reinitialize_data_with_new_parameters(PerMode="Totals"):
             return [stats_dict for stats_dict in self.career_stats.season_totals_regular() if
-                    stats_dict['SEASON_ID'] == self.season]
+                    stats_dict['SEASON_ID'] == self.season][0]
+
+    def _initialize_stat_class(self, stat_class_name):
+        stat_class = getattr(goldsberry.player, stat_class_name)(self.player_id, self.season)
+        """:type : NbaDataProvider"""
+        setattr(self, stat_class_name, stat_class)
 
     def initialize_stat_classes(self):
+        """
+        Initializing all of the classes in goldsberry.player with the player's id, and setting them under self
+        :return:
+        :rtype: None
+        """
         public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.player) if
                                      not stat_class1.startswith('_')]
 
         for stat_class_name in public_stat_classes_names:
-            stat_class = getattr(goldsberry.player, stat_class_name)(self.player_id, self.season)
-            """:type : NbaDataProvider"""
-            setattr(self, stat_class_name, stat_class)
+            self._initialize_stat_class(stat_class_name)
 
-    def is_three_point_shooter(self, attempts_limit=20):
+    def open_player_web_stat_page(self):
+        """
+
+        :return:
+        :rtype: None
+        """
+        webbrowser.open(player_stat_page_regex.format(player_id=self.player_id))
+
+    def is_three_point_shooter(self, attempts_limit=50):
         """
 
         :param attempts_limit: attempts_limit
@@ -96,7 +118,7 @@ class NBAPlayer(object):
         :rtype : bool
         """
         try:
-            return self.player_stats_dict[0]['FG3A'] > attempts_limit
+            return self.player_stats_dict['FG3A'] > attempts_limit
         except IndexError:
             return False
 
@@ -156,7 +178,7 @@ class NBAPlayer(object):
         :param shot_result: made (1) or missed (2)
         :type shot_result: int
         :return: tuple of the EFG% on shots after specific shot_result and the amount of those shots
-        :rtype: tuple(float)
+        :rtype: tuple(float, int)
         """
         player_fgm = 0
         player_fg3m = 0
@@ -178,9 +200,17 @@ class NBAPlayer(object):
             return utilsScripts.calculate_effective_field_goal_percent(player_fgm, player_fg3m, player_fga), player_fga
 
     def get_effective_field_goal_percentage_after_makes(self):
+        """
+        :return: tuple of the EFG% on shots after makes, and the amount of those shots
+        :rtype: tuple(float, int)
+        """
         return self._get_effective_field_goal_percentage_depending_on_previous_shot_result(1)
 
     def get_effective_field_goal_percentage_after_misses(self):
+        """
+        :return: tuple of the EFG% on shots after misses, and the amount of those shots
+        :rtype: tuple(float, int)
+        """
         return self._get_effective_field_goal_percentage_depending_on_previous_shot_result(0)
 
     def _get_teammates_relevant_shooting_stats(self):
@@ -200,9 +230,9 @@ class NBAPlayer(object):
                 team_stats_dict = [stats_dict for stats_dict in self.current_team_object.year_by_year.team_stats() if
                                    stats_dict['YEAR'] == self.season]
         if self.player_stats_dict:
-            player_fgm = self.player_stats_dict[0]["FGM"]
-            player_fg3m = self.player_stats_dict[0]["FG3M"]
-            player_fga = self.player_stats_dict[0]["FGA"]
+            player_fgm = self.player_stats_dict["FGM"]
+            player_fg3m = self.player_stats_dict["FG3M"]
+            player_fga = self.player_stats_dict["FGA"]
         else:
             player_fgm = 0
             player_fg3m = 0
@@ -232,7 +262,7 @@ class NBAPlayer(object):
     def get_teammates_effective_field_goal_percentage_from_passes(self):
         """
         :return: tuple of the EFG% on shots of teammates after a pass, and the amount of those shots
-        :rtype: tuple(float)
+        :rtype: tuple(float, int)
         """
         with self.passing_dashboard.object_manager.reinitialize_data_with_new_parameters(PerMode='Totals'):
             return utilsScripts.get_effective_field_goal_percentage_from_multiple_shot_charts(
@@ -241,7 +271,7 @@ class NBAPlayer(object):
     def get_teammates_effective_field_goal_percentage_without_passes(self):
         """
         :return: tuple of the FG% on shots of teammates that were not after a pass, and the amount of those shots.
-        :rtype: tuple(float)
+        :rtype: tuple(float, int)
         """
         teammates_fgm, teammates_fg3m, teammates_fga = self._get_teammates_relevant_shooting_stats()
         with self.passing_dashboard.object_manager.reinitialize_data_with_new_parameters(PerMode='Totals'):
@@ -266,7 +296,7 @@ class NBAPlayer(object):
         :return: tuple of:
         the diff in EFG% between shots of teammates that were after a pass, and ones that were not after a pass,
         and the amount of the teammates shots.
-        :rtype: tuple(float)
+        :rtype: tuple(float, int)
         """
         teammates_efg_on_shots_after_a_pass_from_player, teammates_number_of_shots_after_a_pass_from_player = \
             self.get_teammates_effective_field_goal_percentage_from_passes()
@@ -274,7 +304,7 @@ class NBAPlayer(object):
             self.get_teammates_effective_field_goal_percentage_without_passes()
         if teammates_number_of_shots_after_a_pass_from_player == 0 or teammates_number_of_shots_not_after_a_pass_from_player == 0:
             return 0, 0
-        return (teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player), \
+        return teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player, \
                teammates_number_of_shots_after_a_pass_from_player
 
     def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
@@ -292,6 +322,11 @@ class NBAPlayer(object):
             number_of_shots=number_of_shots))
 
     def print_shooting_info(self):
+        """
+        Printing all the main relevant info on a player's shooting
+        :return:
+        :rtype: None
+        """
 
         self.print_field_goal_percentage_in_a_given_condition(self.get_effective_field_goal_percentage_after_makes,
                                                               "%FG after a make")
@@ -314,11 +349,21 @@ class NBAPlayer(object):
         print('')
 
     def print_passing_info(self):
+        """
+        Printing all the main relevant info on a player's passing
+        :return:
+        :rtype: None
+        """
         self.print_field_goal_percentage_in_a_given_condition(
             self.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots,
             "- change in teammates %EFG after a pass from a player")
 
     def get_most_frequent_passer_to_player(self):
+        """
+        A dict that represent the passing connection between the player and the player that passes him the ball the most
+        :return:
+        :rtype: dict
+        """
         if not self.passing_dashboard.passes_received():
             print('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.player_name))
@@ -327,6 +372,11 @@ class NBAPlayer(object):
         return most_frequent_assistant_dict
 
     def get_most_frequent_receiver_from_player_passes(self):
+        """
+        A dict that represent the passing connection between the player and the player he passes the ball the most to
+        :return:
+        :rtype: dict
+        """
         if not self.passing_dashboard.passes_received():
             print('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.player_name))
@@ -335,20 +385,28 @@ class NBAPlayer(object):
         return most_frequent_assistant_dict
 
     def get_team_net_rtg_on_off_court(self):
+        """
+
+        :return: The player's current team's net rating when he's ON and OFF the court
+        :rtype: tuple(float, float)
+        """
         if self.team_id is None:
             return 0, 0
-        with self.current_team_object.on_off_court.object_manager.reinitialize_data_with_new_parameters(
-                MeasureType="Advanced"):
-            team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
-                                                        x['VS_PLAYER_ID'] == self.player_id]
-            team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
-                                                         x['VS_PLAYER_ID'] == self.player_id]
+        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
+                                                    x['VS_PLAYER_ID'] == self.player_id]
+        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
+                                                     x['VS_PLAYER_ID'] == self.player_id]
         if [] in [team_advanced_stats_with_player_off_court, team_advanced_stats_with_player_on_court]:
             return 0, 0
         return team_advanced_stats_with_player_on_court[0]['NET_RATING'], team_advanced_stats_with_player_off_court[0][
             'NET_RATING']
 
     def get_team_net_rtg_on_off_court_diff(self):
+        """
+
+        :return:
+        :rtype: float
+        """
         on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
         return on_court_net_rtg - off_court_net_rtg
 
@@ -370,32 +428,59 @@ class NBAPlayer(object):
                     all_time_game_logs += logs_by_year_and_season_type
         return all_time_game_logs
 
-    def get_all_time_per_game_stats(self):
-        return utilsScripts.join_player_single_game_stats(self.get_all_time_game_logs())
+    def get_all_time_per_game_stats(self, per_36=False):
+        """
+
+        :param per_36: Get per 36 stats oppose to per game stats
+        :type per_36: bool
+        :return:
+        :rtype: dict
+        """
+        return utilsScripts.join_player_single_game_stats(self.get_all_time_game_logs(), per_36=per_36)
 
     def get_all_time_game_objects(self, initialize_stat_classes=False):
+        """
+
+        :param initialize_stat_classes: Whether or not to initialize the stat classes for the game objects
+        :type initialize_stat_classes: bool
+        :return:
+        :rtype: list[NBAGamePlayer]
+        """
         player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
         player_all_time_game_objects = [gameScripts.NBAGamePlayer(game_log, initialize_stat_classes) for game_log in
                                         player_all_time_game_logs]
         return player_all_time_game_objects
 
-    def get_national_tv_all_time_game_objects(self):
+    def get_national_tv_all_time_game_objects_and_remaining_game_objects(self):
+        """
+
+        :return:
+        :rtype:tuple(list[dict], list[dict])
+        """
         all_time_game_objects = self.get_all_time_game_objects()
-        all_time_national_tv_game_objects = [game_object for game_object in all_time_game_objects if
-                                             game_object.is_game_on_national_tv()]
-        return all_time_national_tv_game_objects
+        all_time_national_tv_game_objects = []
+        all_time_not_national_tv_game_objects = []
+        for game_object in all_time_game_objects:
+            if game_object.is_game_on_national_tv():
+                all_time_national_tv_game_objects.append(game_object)
+            else:
+                all_time_not_national_tv_game_objects.append(game_object)
+        return all_time_national_tv_game_objects, all_time_not_national_tv_game_objects
 
-    def get_national_tv_all_time_per_game_stats(self):
-        return utilsScripts.join_player_single_game_stats(self.get_national_tv_all_time_game_objects())
+    def get_national_tv_all_time_per_36_stats_compared_to_other_games(self):
+        """
 
-    def get_not_national_tv_all_time_game_objects(self):
-        all_time_game_objects = self.get_all_time_game_objects()
-        all_time_not_national_tv_game_objects = [game_object for game_object in all_time_game_objects if
-                                                 not game_object.is_game_on_national_tv()]
-        return all_time_not_national_tv_game_objects
-
-    def get_not_national_tv_all_time_per_game_stats(self):
-        return utilsScripts.join_player_single_game_stats(self.get_not_national_tv_all_time_game_objects())
+        :return:
+        :rtype:dict[str, dict]
+        """
+        all_time_national_tv_game_objects, all_time_not_national_tv_game_objects = \
+            self.get_national_tv_all_time_game_objects_and_remaining_game_objects()
+        all_time_national_tv_game_dicts = [game_object.game_dict for game_object in all_time_national_tv_game_objects]
+        all_time_not_national_tv_game_dicts = [game_object.game_dict for game_object in
+                                               all_time_not_national_tv_game_objects]
+        return {'National TV': utilsScripts.join_player_single_game_stats(all_time_national_tv_game_dicts, per_36=True),
+                'Not National TV': utilsScripts.join_player_single_game_stats(all_time_not_national_tv_game_dicts,
+                                                                              per_36=True)}
 
     def get_effective_field_goal_percentage_on_contested_shots_outside_10_feet(self):
         """
