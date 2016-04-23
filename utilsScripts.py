@@ -1,15 +1,26 @@
 from __future__ import division
 import functools
 import os
-
+import csv
+import collections
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
 
 
-def join_player_single_game_stats(game_logs_list):
+def join_player_single_game_stats(game_logs_list, per_36=False):
+    """
+
+    :param game_logs_list:
+    :type game_logs_list:list[dict]
+    :param per_36: Whether to measure all the relevant stats categories so they will be per 36 minutes
+    :type per_36: bool
+    :return:
+    :rtype: dict
+    """
     keys_to_discard = ['GAME_DATE',
                        'Game_ID',
+                       'GAME_ID',
                        'MATCHUP',
                        'VIDEO_AVAILABLE',
                        'SEASON_ID'
@@ -22,19 +33,50 @@ def join_player_single_game_stats(game_logs_list):
     percentage_keys_to_create_back = ['FG3_PCT',
                                       'FG_PCT',
                                       'FT_PCT']
+    if per_36:
+        game_logs_to_remove = []
+        keys_to_not_divide = keys_to_discard + keys_to_sum + keys_to_take_first + percentage_keys_to_create_back + [
+            'MIN']
+        for game_log in game_logs_list:
+            if not game_log['MIN']:
+                game_logs_to_remove.append(game_log)
+            else:
+                for category_name, category_value in game_log.items():
+                    if category_name not in keys_to_not_divide:
+                        game_log[category_name] = category_value / (game_log['MIN'] / 36)
+        for game_log in game_logs_to_remove:
+            game_logs_list.remove(game_log)
 
     combined_game_stats = join_stat_dicts(game_logs_list, keys_to_discard, keys_to_sum, keys_to_take_first,
                                           percentage_keys_to_create_back)
-    combined_game_stats.update({'G': len(game_logs_list)})
     return combined_game_stats
 
 
 def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_take_first=None,
                     percentage_keys_to_create_back=None, wage_key=None):
+    """
+
+    :param dicts_list:
+    :type dicts_list: list[dict]
+    :param keys_to_discard:
+    :type keys_to_discard: list[str]
+    :param keys_to_sum:
+    :type keys_to_sum: list[str]
+    :param keys_to_take_first:
+    :type keys_to_take_first: list[str]
+    :param percentage_keys_to_create_back:
+    :type percentage_keys_to_create_back: list[str]
+    :param wage_key:
+    :type wage_key: str
+    :return: A dict with the calculated stats for all the dicts
+    :rtype: dict
+    """
     keys_to_discard = [] if keys_to_discard is None else keys_to_discard
     keys_to_sum = [] if keys_to_sum is None else keys_to_sum
     keys_to_take_first = [] if keys_to_take_first is None else keys_to_take_first
     percentage_keys_to_create_back = [] if percentage_keys_to_create_back is None else percentage_keys_to_create_back
+
+    number_of_dicts = len(dicts_list)
 
     if not dicts_list:
         return dicts_list
@@ -53,18 +95,18 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
             # dict1.pop(key)
             pass
         elif key in keys_to_take_first:
-            dict2[key] = dict1[key][0]
+            dict2[key] = value[0]
         elif key in keys_to_sum:
-            dict2['TOTAL_' + key] = functools.reduce(lambda x, y: x + y, dict1[key])
+            dict2['TOTAL_' + key] = functools.reduce(lambda x, y: x + y, value)
         # Can't use "sum" cause WL are strings
         elif key not in percentage_keys_to_create_back and key is not wage_key:
             if wage_key is None:
-                dict2[key] = functools.reduce(lambda x, y: x + y, dict1[key]) / float(len(dict1[key]))
+                dict2[key] = functools.reduce(lambda x, y: x + y, value) / float(len(value))
             else:
                 numerator = 0
                 divisor = 0
-                for index in range(len(dicts_list)):
-                    numerator += dict1[key][index] * dict1[wage_key][index]
+                for index in range(number_of_dicts):
+                    numerator += value[index] * dict1[wage_key][index]
                     divisor += dict1[wage_key][index]
                 dict2[key] = numerator / divisor if divisor != 0 else 0
 
@@ -79,10 +121,19 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
         dict2['TOTAL_W'] = wins_and_losses.count('W')
         dict2['TOTAL_L'] = wins_and_losses.count('L')
 
+    dict2['NUM_OF_ITEMS'] = number_of_dicts
+
     return dict2
 
 
 def join_advanced_lineup_dicts(lineup_dicts):
+    """
+
+    :param lineup_dicts:
+    :type lineup_dicts:list[dict]
+    :return:
+    :rtype: dict
+    """
     keys_to_discard = ['W',
                        'W_PCT',
                        'L',
@@ -98,28 +149,69 @@ def join_advanced_lineup_dicts(lineup_dicts):
         lineup_dict['POS'] = number_of_possessions
 
     if not lineup_dicts:
-        return lineup_dicts
+        return dict()
     else:
         return join_stat_dicts(lineup_dicts, keys_to_discard=keys_to_discard, keys_to_sum=keys_to_sum, wage_key='POS')
 
 
-def convert_dicts_into_csv(dicts_to_convert, csv_path):
+def convert_dicts_into_csv(dicts_to_convert, primary_key, csv_path):
     """
     :param dicts_to_convert: A list of the dicts that will be converted into a single table. The keys most be identical.
-    :type dicts_to_convert: list
+    :type dicts_to_convert: list[dict]
+    :param primary_key:
+    :type primary_key: str
     :param csv_path: Path to the output csv file
     :type csv_path: str
     """
-    import csv
-
     if not type(dicts_to_convert) == list:
-        dicts_to_convert = [dicts_to_convert]
+        raise Exception('Has to be a list of dicts')
     with open(csv_path, 'w') as csvfile:
-        fieldnames = ['category'] + dicts_to_convert[0].keys()
+        fieldnames = list(dicts_to_convert[0].keys())
+        # Moving the primary key to the top of the fieldnames list
+        fieldnames.insert(0, fieldnames.pop(fieldnames.index(primary_key)))
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for dict_to_enter in dicts_to_convert:
-            writer.writerow(dict_to_enter)
+            ordered_dict_to_enter = collections.OrderedDict()
+            primary_value = dict_to_enter.pop(primary_key)
+            ordered_dict_to_enter.update({primary_key: primary_value})
+            ordered_dict_to_enter.update(dict_to_enter)
+            writer.writerow(ordered_dict_to_enter)
+
+
+def convert_dict_of_dicts_into_csv(dict_of_dicts_to_convert, csv_path, original_dict_key_description='Category'):
+    """
+
+    :param dict_of_dicts_to_convert:
+    :type dict_of_dicts_to_convert: dict[dict]
+    :param csv_path:
+    :type csv_path: str
+    :param original_dict_key_description:
+    :type original_dict_key_description: str
+    :return: nothing
+    :rtype: None
+    """
+    list_of_dicts_to_convert = _convert_dict_of_dicts_into_list_of_dicts(dict_of_dicts_to_convert,
+                                                                         original_dict_key_description)
+    convert_dicts_into_csv(list_of_dicts_to_convert, original_dict_key_description, csv_path)
+
+
+def _convert_dict_of_dicts_into_list_of_dicts(dict_of_dicts_to_convert, original_dict_key_description):
+    """
+
+    :param dict_of_dicts_to_convert:
+    :type dict_of_dicts_to_convert: dict[dict]
+    :param original_dict_key_description:
+    :type original_dict_key_description: str
+    :return:
+    :rtype:list[dict]
+    """
+    list_of_dicts_to_return = []
+    for k, v in dict_of_dicts_to_convert.items():
+        dict_to_append = v
+        dict_to_append[original_dict_key_description] = k
+        list_of_dicts_to_return.append(dict_to_append)
+    return list_of_dicts_to_return
 
 
 def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes, field_goal_attempts):
@@ -210,11 +302,13 @@ def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, ch
     """
     Return whether or not there's a player from a list in a lineup
     :param lineup_dict:
-    :type lineup_dict:
+    :type lineup_dict: dict
     :param players_object_list:
-    :type players_object_list:
+    :type players_object_list: list[NBAPlayer]
+    :param check_all_players: Is single player's appearance in the lineup enough to return to determine result
+    :type check_all_players: bool
     :return:
-    :rtype:
+    :rtype: bool
     """
 
     lineup_players_ids_list = _get_list_of_players_ids_from_lineup_dict(lineup_dict)
@@ -229,16 +323,16 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
     """
     Both lists empty - Every lineup is good
     Only white list full - Only players in white list
-    Only black list full - Only players not in white list
-    Both lists full - Only players in white list, Only players not in white list
+    Only black list full - Only players not in black list
+    Both lists full - Only players in white list, and not in black list
     :param lineup_dict:
-    :type lineup_dict:
+    :type lineup_dict: dict
     :param white_list:
-    :type white_list:
+    :type white_list: list[NBAPlayer]
     :param black_list:
-    :type black_list:
+    :type black_list: list[NBAPlayer]
     :return:
-    :rtype:
+    :rtype: bool
     """
     if _does_lineup_contains_players_from_list(lineup_dict, black_list, check_all_players=False):
         return False
@@ -259,7 +353,7 @@ def is_lineup_all_shooters(lineup_dict, attempts_limit=20):
     """
     for player_id in _get_list_of_players_ids_from_lineup_dict(lineup_dict):
         from playerScripts import NBAPlayer
-        player_object = NBAPlayer(player_name_or_id=player_id)
+        player_object = NBAPlayer(player_name_or_id=player_id, initialize_stat_classes=False)
         if not player_object.is_three_point_shooter(attempts_limit=attempts_limit):
             return False
     else:
