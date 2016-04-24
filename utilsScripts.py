@@ -340,3 +340,25 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
         return True
     else:
         return False
+
+
+def is_player_over_200_fga(player_object):
+    """
+
+    :param player_object:
+    :type player_object: NBAPlayer
+    :return: Whether the player shot more the 200 field goal attempts this season or not
+    :rtype: bool
+    """
+    return player_object.player_stats_dict["FGA"] > 200
+
+
+def is_player_over_50_assists(player_object):
+    """
+
+    :param player_object:
+    :type player_object: NBAPlayer
+    :return: Whether the player passed more the 50 assists this season or not
+    :rtype: bool
+    """
+    return player_object.player_stats_dict['AST'] > 50
