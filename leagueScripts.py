@@ -63,6 +63,8 @@ class NBALeague(object):
                         time.sleep(0.1)
                         print('    Initializing stat classes for %s object..' % player_object.player_dict['PLAYERCODE'])
                         player_object.initialize_stat_classes()
+                        # We want to initialize 'player_stats_dict' cached property
+                        a = player_object.player_stats_dict
                 self.team_objects_list.append(team_object)
             players_not_on_team_dicts_list = [player_dict for player_dict in goldsberry.PlayerList().players() if
                                               not player_dict['TEAM_ID']]
@@ -183,6 +185,15 @@ class NBALeague(object):
                 team_all_shooters_lineups_dicts)
         return league_all_shooters_lineups_dicts
 
+    def print_league_playtype_point_per_possession(self):
+        """
+
+        :return:
+        :rtype: None
+        """
+        for k, v in self.playtype.__dict__.items():
+            print('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
+
     @staticmethod
     def get_cached_league_object(season='2015'):
         """
@@ -199,33 +210,10 @@ class NBALeague(object):
 
 
 if __name__ == "__main__":
-    nba_league_2015 = NBALeague(initialize_player_objects=False)
-
-    # def print_league_playtypes():
-    #     for play_type in filter(lambda game_object: not game_object.startswith('_'), dir(goldsberry.league.playtype)):
-    #         print '{play_type_to_print} - {ppp_to_print}'.format(play_type_to_print=play_type,
-    #                                                              ppp_to_print=nba_league_2015.get_offensive_ppp_league_average_for_specific_play_type(play_type))
-    #
-    # print_league_playtypes()
-
-    player_objects_list = nba_league_2015.players_on_team_objects_list
+    nba_league_2015 = NBALeague.get_cached_league_object()
 
 
-    def is_over_200_fga(player_object):
-        try:
-            return player_object.player_stats_dict[0]["FGA"] > 200
-        except IndexError:
-            return False
-
-
-    def is_over_50_assists(player_object):
-        try:
-            return player_object.player_stats_dict[0]['AST'] > 50
-        except IndexError:
-            return False
-
-
-    player_objects_list = [my_player_object for my_player_object in player_objects_list if
+    player_objects_list = [my_player_object for my_player_object in nba_league_2015.player_objects_list if
                            is_over_50_assists(my_player_object)]
 
     list1 = [(my_player_object.player_name,
