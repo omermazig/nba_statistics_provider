@@ -73,16 +73,21 @@ class NBAPlayer(object):
     @cached_property
     def player_stats_dict(self):
         """
-        NOTE: We use the goldsberry originated object of 'career_stats' and not the class's one because we want this
-        property to be available even when the player's stat classes are not initialized.
+        NOTE: goldsberry originated object of 'career_stats' is essential for this property, so we initialize it if
+        it's not already initialized.
         :return: A dict that represent the player's basic total stats for the given season
         :rtype: dict
         """
         if not hasattr(self, 'career_stats'):
             self._initialize_stat_class('career_stats')
         with self.career_stats.object_manager.reinitialize_data_with_new_parameters(PerMode="Totals"):
-            return [stats_dict for stats_dict in self.career_stats.season_totals_regular() if
-                    stats_dict['SEASON_ID'] == self.season][0]
+            filtered_list_of_player_stats_dicts = [stats_dict for stats_dict in
+                                                   self.career_stats.season_totals_regular() if
+                                                   stats_dict['SEASON_ID'] == self.season]
+            if filtered_list_of_player_stats_dicts:
+                return filtered_list_of_player_stats_dicts[0]
+            else:
+                return None
 
     def _initialize_stat_class(self, stat_class_name):
         stat_class = getattr(goldsberry.player, stat_class_name)(self.player_id, self.season)
