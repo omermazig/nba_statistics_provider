@@ -340,21 +340,3 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
         return True
     else:
         return False
-
-
-def is_lineup_all_shooters(lineup_dict, attempts_limit=20):
-    """
-    :param lineup_dict: Lineup to check
-    :type lineup_dict: dict
-    :param attempts_limit: attempts_limit
-    :type attempts_limit: int
-    :return: Whether or not every player in the lineup has shot more threes than the attempts limit
-    :rtype: bool
-    """
-    for player_id in _get_list_of_players_ids_from_lineup_dict(lineup_dict):
-        from playerScripts import NBAPlayer
-        player_object = NBAPlayer(player_name_or_id=player_id, initialize_stat_classes=False)
-        if not player_object.is_three_point_shooter(attempts_limit=attempts_limit):
-            return False
-    else:
-        return True
