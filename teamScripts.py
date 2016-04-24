@@ -19,7 +19,8 @@ nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(utilsScripts.pick
 
 
 class NBATeam(object):
-    def __init__(self, team_name_or_id, season=default_season, initialize_stat_classes=True):
+    def __init__(self, team_name_or_id, season=default_season, initialize_stat_classes=True,
+                 initialize_game_objects=False):
         """
 
         :return: An NBA team object
@@ -34,10 +35,12 @@ class NBATeam(object):
         else:
             raise Exception('Constructor only receives string or integer')
         self.season = season
-        if initialize_stat_classes:
-            self.initialize_stat_classes()
         self.games_summary_dicts = []
         """:type : list[NBAGameTeam]"""
+        if initialize_stat_classes:
+            self.initialize_stat_classes()
+        if initialize_game_objects:
+            self.initialize_game_objects()
 
     def __repr__(self):
         """
@@ -66,7 +69,7 @@ class NBATeam(object):
         """
         return self._generate_current_players_objects(initialize_stat_classes=False)
 
-    def _generate_current_players_objects(self, initialize_stat_classes=True):
+    def _generate_current_players_objects(self, initialize_stat_classes):
         """
         Returns a list of player objects for players on the team's roster
         :param initialize_stat_classes:
@@ -81,6 +84,7 @@ class NBATeam(object):
                 nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_dict['PLAYER_ID'],
                                                             season=self.season,
                                                             initialize_stat_classes=initialize_stat_classes)
+                nba_player_object.current_team_object = self
                 players_objects_list.append(nba_player_object)
             except playerScripts.NoSuchPlayer:
                 print(
@@ -100,7 +104,9 @@ class NBATeam(object):
                            not my_stat_class.startswith('_')]:
             stat_class_function = getattr(goldsberry.team, stat_class)
             setattr(self, stat_class, stat_class_function(team_id=self.team_id, season=self.season))
-        self.games_summary_dicts = [gameScripts.NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
+
+    def initialize_game_objects(self):
+        self.games_summary_dicts += [gameScripts.NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
 
     def get_filtered_lineup_dicts(self, white_list=None, black_list=None):
         """
