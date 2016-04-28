@@ -7,12 +7,22 @@ import webbrowser
 import teamScripts
 import gameScripts
 import utilsScripts
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
 import goldsberry
 
 from goldsberry.masterclass import NbaDataProvider
 
 player_stat_page_regex = "http://stats.nba.com/player/#!/{player_id}/stats/"
+
+
+def must_have_one_team_wrapper(func1):
+    def wrapper(*args):
+        if len(args[0]._players_all_stats_dict) > 1:
+            raise PlayerHasMoreThenOneTeam
+        else:
+            return func1(*args)
+
+    return wrapper
 
 
 class NBAPlayer(object):
@@ -29,17 +39,17 @@ class NBAPlayer(object):
         :type initialize_stat_classes: bool
         """
         self.season = season
-
         if type(player_name_or_id) is int:
             identifying_key = 'PERSON_ID'
-            filter_function = lambda dict1: player_name_or_id == dict1[identifying_key]
+            filter_function = lambda dict1: dict1[identifying_key] and player_name_or_id == dict1[identifying_key]
         elif type(player_name_or_id) is str:
             identifying_key = 'PLAYERCODE'
-            filter_function = lambda dict1: player_name_or_id in dict1[identifying_key]
+            filter_function = lambda dict1: dict1[identifying_key] and player_name_or_id in dict1[identifying_key]
         else:
             raise Exception('Constructor only receives string or integer')
 
-        filtered_player_dicts_list = goldsberry.PlayerList().players()
+        filtered_player_dicts_list = [dict1 for dict1 in goldsberry.PlayerList(is_only_current_season=0).players() if
+                                      int(dict1['FROM_YEAR']) <= int(self.season[:4]) <= int(dict1['TO_YEAR'])]
         filtered_player_dicts_list = [dict1 for dict1 in filtered_player_dicts_list if filter_function(dict1)]
         number_of_matching_player_dicts = len(filtered_player_dicts_list)
         if number_of_matching_player_dicts == 0:
@@ -49,7 +59,6 @@ class NBAPlayer(object):
         else:
             self.player_dict = filtered_player_dicts_list[0]
         self.player_id = self.player_dict["PERSON_ID"]
-        self.team_id = self.player_dict["TEAM_ID"] if self.player_dict["TEAM_ID"] else None
         self.player_name = self.player_dict["PLAYERCODE"]
 
         if initialize_stat_classes:
@@ -57,6 +66,16 @@ class NBAPlayer(object):
 
     def __repr__(self):
         return "<{player_name} Object>".format(player_name=self.player_name)
+
+    def __cmp__(self, other):
+        """
+        The compare between two NBATeam objects is to check whether they have the same team id And the same season
+        :param other:
+        :type other: self
+        :return:
+        :rtype: bool
+        """
+        return self.player_id == other.player_id and self.season == other.season
 
     @cached_property
     def current_team_object(self):
@@ -66,17 +85,39 @@ class NBAPlayer(object):
         :rtype:teamScripts.NBATeam
         """
         if self.team_id:
-            return teamScripts.NBATeam(self.team_id)
+            return teamScripts.NBATeam(self.team_id, season=self.season)
         else:
             return None
 
     @cached_property
-    def player_stats_dict(self):
+    def team_id(self):
+        """
+
+        :return: Last team player played for in the given season
+        :rtype:int
+        """
+        if not hasattr(self, 'career_stats'):
+            self._initialize_stat_class('career_stats')
+        filtered_list_of_player_career_stats_dicts = [stats_dict for stats_dict in
+                                                      self.career_stats.season_totals_regular() if
+                                                      stats_dict['SEASON_ID'] == self.season]
+        num_of_matching_dicts = len(filtered_list_of_player_career_stats_dicts)
+        if num_of_matching_dicts == 0:
+            return None
+        elif num_of_matching_dicts == 1:
+            return filtered_list_of_player_career_stats_dicts[0]['TEAM_ID']
+        else:
+            return [career_stats_dict for career_stats_dict in filtered_list_of_player_career_stats_dicts if
+                    career_stats_dict['TEAM_ID']][-1]['TEAM_ID']
+
+    @cached_property
+    def _players_all_stats_dict(self):
         """
         NOTE: goldsberry originated object of 'career_stats' is essential for this property, so we initialize it if
         it's not already initialized.
-        :return: A dict that represent the player's basic total stats for the given season
-        :rtype: dict
+        :return: A list of dicts that represents the player's basic total stats for the given season. Every dict
+        represents a team (or TOTAL, if the player had more then one)
+        :rtype: list[dict]
         """
         if not hasattr(self, 'career_stats'):
             self._initialize_stat_class('career_stats')
@@ -84,10 +125,24 @@ class NBAPlayer(object):
             filtered_list_of_player_stats_dicts = [stats_dict for stats_dict in
                                                    self.career_stats.season_totals_regular() if
                                                    stats_dict['SEASON_ID'] == self.season]
-            if filtered_list_of_player_stats_dicts:
-                return filtered_list_of_player_stats_dicts[0]
-            else:
-                return None
+        return filtered_list_of_player_stats_dicts
+
+    @property
+    def player_stats_dict(self):
+        """
+        NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams
+        :return: A dict that represent the player's basic total stats for the given season
+        :rtype: dict
+        """
+        filtered_list_of_player_stats_dicts = self._players_all_stats_dict
+        num_of_matching_dicts = len(filtered_list_of_player_stats_dicts)
+        if num_of_matching_dicts == 0:
+            return None
+        elif num_of_matching_dicts == 1:
+            return filtered_list_of_player_stats_dicts[0]
+        else:
+            return [stats_dict for stats_dict in filtered_list_of_player_stats_dicts if
+                    stats_dict['TEAM_ABBREVIATION'] == 'TOT'][0]
 
     def _initialize_stat_class(self, stat_class_name):
         stat_class = getattr(goldsberry.player, stat_class_name)(self.player_id, self.season)
@@ -104,7 +159,10 @@ class NBAPlayer(object):
                                      not stat_class1.startswith('_')]
 
         for stat_class_name in public_stat_classes_names:
-            self._initialize_stat_class(stat_class_name)
+            try:
+                self._initialize_stat_class(stat_class_name)
+            except ValueError:
+                print("Could not initialize %s - Maybe it wasn't instituted in %s" % (stat_class_name, self.season))
 
     def open_player_web_stat_page(self):
         """
@@ -126,6 +184,24 @@ class NBAPlayer(object):
             return self.player_stats_dict['FG3A'] > attempts_limit
         except IndexError:
             return False
+
+    def is_player_over_200_fga(self):
+        """
+
+        :return: Whether the player shot more the 200 field goal attempts this season or not
+        :rtype: bool
+        """
+        if self.player_stats_dict:
+            return self.player_stats_dict["FGA"] > 200
+
+    def is_player_over_50_assists(self):
+        """
+
+        :return: Whether the player passed more the 50 assists this season or not
+        :rtype: bool
+        """
+        if self.player_stats_dict:
+            return self.player_stats_dict['AST'] > 50
 
     # BLOCKED BY NBA - No longer provide defender distance per shot
     # def _get_average_defender_distance_depending_on_shot_result(self, shot_result):
@@ -218,6 +294,7 @@ class NBAPlayer(object):
         """
         return self._get_effective_field_goal_percentage_depending_on_previous_shot_result(0)
 
+    @must_have_one_team_wrapper
     def _get_teammates_relevant_shooting_stats(self):
         """
         :return: tuple of:
@@ -226,7 +303,7 @@ class NBAPlayer(object):
         The number of field goals attempted by the players' teammates
         :rtype: tuple(int, int, int)
         """
-        if self.team_id is None:
+        if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.player_name))
         else:
@@ -305,12 +382,15 @@ class NBAPlayer(object):
         """
         teammates_efg_on_shots_after_a_pass_from_player, teammates_number_of_shots_after_a_pass_from_player = \
             self.get_teammates_effective_field_goal_percentage_from_passes()
-        teammates_efg_on_shots_not_after_a_pass_from_player, teammates_number_of_shots_not_after_a_pass_from_player = \
-            self.get_teammates_effective_field_goal_percentage_without_passes()
-        if teammates_number_of_shots_after_a_pass_from_player == 0 or teammates_number_of_shots_not_after_a_pass_from_player == 0:
+        if teammates_number_of_shots_after_a_pass_from_player == 0:
             return 0, 0
-        return teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player, \
-               teammates_number_of_shots_after_a_pass_from_player
+        else:
+            teammates_efg_on_shots_not_after_a_pass_from_player, teammates_number_of_shots_not_after_a_pass_from_player = \
+                self.get_teammates_effective_field_goal_percentage_without_passes()
+            if teammates_number_of_shots_not_after_a_pass_from_player == 0:
+                return 0, 0
+            return teammates_efg_on_shots_after_a_pass_from_player - teammates_efg_on_shots_not_after_a_pass_from_player, \
+                   teammates_number_of_shots_after_a_pass_from_player
 
     def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
                                                          is_percentage_diff=False):
@@ -395,8 +475,9 @@ class NBAPlayer(object):
         :return: The player's current team's net rating when he's ON and OFF the court
         :rtype: tuple(float, float)
         """
-        if self.team_id is None:
-            return 0, 0
+        if self.current_team_object is None:
+            raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
+                player_name=self.player_name))
         team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
                                                     x['VS_PLAYER_ID'] == self.player_id]
         team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
@@ -412,7 +493,10 @@ class NBAPlayer(object):
         :return:
         :rtype: float
         """
-        on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
+        try:
+            on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
+        except PlayerHasNoTeam:
+            return 0
         return on_court_net_rtg - off_court_net_rtg
 
     def get_all_time_game_logs(self):
@@ -543,20 +627,18 @@ class NBAPlayer(object):
 
 if __name__ == "__main__":
     players_names_list = [
-        'rajon_rondo',
-        'stephen_curry',
-        'james_harden',
-        'lebron_james',
-        'jr_smith',
-        'paul_pierce',
-        'carmelo_anthony',
+        # 'rajon_rondo',
+        # 'stephen_curry',
+        # 'james_harden',
+        # 'lebron_james',
+        # 'jr_smith',
+        # 'paul_pierce',
+        'carmelo_anthony'
     ]
-    selected_season = 2015
+    selected_season = '2015-16'
     for player_name in players_names_list:
-        nba_player = NBAPlayer(player_name_or_id=player_name)
-        b = nba_player.shot_dashboard.overall()
-        a = nba_player.get_all_time_per_game_stats()
-        nba_player.print_passing_info()
+        nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
+        # nba_player.print_passing_info()
 
         # national_tv_stats = nba_player.get_national_tv_all_time_per_game_stats()
         # not_national_tv_stats = nba_player.get_not_national_tv_all_time_per_game_stats()
