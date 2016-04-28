@@ -7,7 +7,7 @@ import time
 import playerScripts
 import utilsScripts
 import teamScripts
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam
 import goldsberry
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
@@ -57,21 +57,26 @@ class NBALeague(object):
             for team_name, team_id in teamScripts.teams_id_dict.items():
                 time.sleep(0.1)
                 print('Fetching %s team object...' % team_name)
-                team_object = teamScripts.NBATeam(team_id, season=season)
+                team_object = teamScripts.NBATeam(team_id, season=self.season)
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
                         time.sleep(0.1)
-                        print('    Initializing stat classes for %s object..' % player_object.player_dict['PLAYERCODE'])
+                        print('    Initializing stat classes for %s object..' % player_object.player_name)
                         player_object.initialize_stat_classes()
                         # We want to initialize 'player_stats_dict' cached property
                         a = player_object.player_stats_dict
                 self.team_objects_list.append(team_object)
-            players_not_on_team_dicts_list = [player_dict for player_dict in goldsberry.PlayerList().players() if
+            print('Initializing players with no current team...')
+            players_not_on_team_dicts_list = [player_dict for player_dict in
+                                              goldsberry.PlayerList(season=season).players() if
                                               not player_dict['TEAM_ID']]
             self._players_not_on_team_objects_list = [
                 playerScripts.NBAPlayer(player_name_or_id=player_dict['PERSON_ID'], season=self.season) for player_dict
                 in
                 players_not_on_team_dicts_list]
+            for player_object in self._players_not_on_team_objects_list:
+                # We want to initialize 'player_stats_dict' cached property
+                a = player_object.player_stats_dict
 
     @property
     def player_objects_list(self):
@@ -102,17 +107,6 @@ class NBALeague(object):
             stat_class = getattr(goldsberry.league, stat_class_name)(season=self.season)
             """:type : NbaDataProvider"""
             setattr(self, stat_class_name, stat_class)
-
-    def pickle_league_object(self):
-        """
-        Caching self object using pickle, so we don't have to create it every time (Take a LONG time)
-        :return:
-        :rtype: None
-        """
-        league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
-        with open(league_object_pickle_path, 'wb') as file1:
-            'Updating pickle...'
-            pickle.dump(self, file1)
 
     def get_player_object_by_name(self, player_name):
         """
@@ -185,6 +179,27 @@ class NBALeague(object):
                 team_all_shooters_lineups_dicts)
         return league_all_shooters_lineups_dicts
 
+    def get_players_sorted_by_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
+        """
+
+        :return:
+        :rtype: list[playerScripts.NBAPlayer]
+        """
+        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+                                        my_player_object.is_player_over_50_assists()]
+
+        print('Getting relevant data...')
+        players_name_and_result = []
+        for my_player_object in filtered_player_objects_list:
+            try:
+                players_name_and_result.append((my_player_object.player_name,
+                                                my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots()))
+            except PlayerHasMoreThenOneTeam:
+                pass
+        print('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][0], reverse=True)
+        return players_name_and_result
+
     def print_league_playtype_point_per_possession(self):
         """
 
@@ -210,14 +225,12 @@ class NBALeague(object):
 
 
 if __name__ == "__main__":
-    nba_league_2015 = NBALeague.get_cached_league_object()
+    for year in range(2015, 2012, -1):
+        league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
+                                initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
+        league_object_pickle_path = league_object_pickle_path_regex.format(season=league_year.season[:4] + 'kuku')
+        with open(league_object_pickle_path, 'wb') as file1:
+            'Updating pickle...'
+            pickle.dump(league_year, file1)
 
-
-    player_objects_list = [my_player_object for my_player_object in nba_league_2015.player_objects_list if
-                           is_over_50_assists(my_player_object)]
-
-    list1 = [(my_player_object.player_name,
-              my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots())
-             for my_player_object in player_objects_list]
-    list1.sort(key=lambda x: x[1][0], reverse=True)
-    print(list1)
+        league_year.pickle_league_object()
