@@ -78,10 +78,11 @@ class NBATeam(object):
         :rtype: list[playerScripts.NBAPlayer]
         """
         players_objects_list = []
-        for player_dict in goldsberry.team.roster(team_id=self.team_id, season=self.season).players():
+        for player_dict_on_roster in goldsberry.team.roster(team_id=self.team_id, season=self.season).players():
             try:
-
-                nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_dict['PLAYER_ID'],
+                player_name = player_dict_on_roster['PLAYER']
+                player_id = player_dict_on_roster['PLAYER_ID']
+                nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_id,
                                                             season=self.season,
                                                             initialize_stat_classes=initialize_stat_classes)
                 nba_player_object.current_team_object = self
@@ -89,7 +90,7 @@ class NBATeam(object):
             except playerScripts.NoSuchPlayer:
                 print(
                     "{player_name} was not found in leagues players, even though he's on the team roster".format(
-                        player_name=player_dict['PLAYERCODE']))
+                        player_name=player_name))
             except Exception as e:
                 raise e
         return players_objects_list
@@ -149,12 +150,4 @@ if __name__ == "__main__":
     # only_shooters_bobcats_lineups = bobcats.get_all_shooters_lineup_dicts()
     # bobcats_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_bobcats_lineups)
     my_season = '2015-16'
-    league_dict = {}
-    for team_name, team_id in teams_id_dict.items():
-        print('%s...' % team_name)
-        team_object = NBATeam(team_id, season=my_season)
-        only_shooters_team_lineups = team_object.get_all_shooters_lineup_dicts()
-        team_all_shooters_advanced_stats = utilsScripts.join_advanced_lineup_dicts(only_shooters_team_lineups)
-        league_dict[team_name] = (only_shooters_team_lineups, team_all_shooters_advanced_stats)
-    with open(nba_teams_all_shooters_lineups_dicts_path_regex.format(season=my_season), 'wb') as file1:
-        pickle.dump(league_dict, file1)
+    warriors = NBATeam('warriors', season='2014-15')
