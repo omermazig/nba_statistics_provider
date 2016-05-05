@@ -95,5 +95,5 @@ pythonPickles/
 csvs/
 *.csv
 
-
-
+# pycharm files
+.idea/
