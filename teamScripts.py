@@ -35,12 +35,8 @@ class NBATeam(object):
         else:
             raise Exception('Constructor only receives string or integer')
         self.season = season
-        self.games_summary_dicts = []
-        """:type : list[NBAGameTeam]"""
         if initialize_stat_classes:
             self.initialize_stat_classes()
-        if initialize_game_objects:
-            self.initialize_game_objects()
 
     def __repr__(self):
         """
@@ -61,6 +57,28 @@ class NBATeam(object):
         return self.team_id == other.team_id and self.season == other.season
 
     @cached_property
+    def team_stats_dict(self):
+        """
+
+        :return:
+        :rtype:
+        """
+        if not hasattr(self, 'year_by_year'):
+            self._initialize_stat_class('year_by_year')
+        team_stats_dict = [stats_dict for stats_dict in self.year_by_year.team_stats() if
+                           stats_dict['YEAR'] == self.season]
+        return team_stats_dict[0]
+
+    @cached_property
+    def team_regular_season_game_objects(self):
+        """
+
+        :return:
+        :rtype: list[NBAGameTeam]
+        """
+        return [gameScripts.NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
+
+    @cached_property
     def current_players_objects(self):
         """
 
@@ -79,9 +97,9 @@ class NBATeam(object):
         """
         players_objects_list = []
         for player_dict_on_roster in goldsberry.team.roster(team_id=self.team_id, season=self.season).players():
+            player_name = player_dict_on_roster['PLAYER']
+            player_id = player_dict_on_roster['PLAYER_ID']
             try:
-                player_name = player_dict_on_roster['PLAYER']
-                player_id = player_dict_on_roster['PLAYER_ID']
                 nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_id,
                                                             season=self.season,
                                                             initialize_stat_classes=initialize_stat_classes)
@@ -95,19 +113,27 @@ class NBATeam(object):
                 raise e
         return players_objects_list
 
+    def _initialize_stat_class(self, stat_class_name):
+        """
+
+        :param stat_class_name:
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        stat_class = getattr(goldsberry.team, stat_class_name)(team_id=self.team_id, season=self.season)
+        """:type : NbaDataProvider"""
+        setattr(self, stat_class_name, stat_class)
+
     def initialize_stat_classes(self):
         """
 
         :return:
         :rtype: None
         """
-        for stat_class in [my_stat_class for my_stat_class in dir(goldsberry.team) if
-                           not my_stat_class.startswith('_')]:
-            stat_class_function = getattr(goldsberry.team, stat_class)
-            setattr(self, stat_class, stat_class_function(team_id=self.team_id, season=self.season))
-
-    def initialize_game_objects(self):
-        self.games_summary_dicts += [gameScripts.NBAGameTeam(game_log) for game_log in self.game_logs.logs()]
+        for stat_class_name in [my_stat_class for my_stat_class in dir(goldsberry.team) if
+                                not my_stat_class.startswith('_')]:
+            self._initialize_stat_class(stat_class_name)
 
     def get_filtered_lineup_dicts(self, white_list=None, black_list=None):
         """

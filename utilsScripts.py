@@ -7,6 +7,52 @@ import collections
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
 
+values_to_adjust_to_per_game_mode = ['AST',
+                                     'BLK',
+                                     'DREB',
+                                     'FG2A',
+                                     'FG2M',
+                                     'FG3A',
+                                     'FG3M',
+                                     'FGA',
+                                     'FGM',
+                                     'FTA',
+                                     'FTM',
+                                     'MIN',
+                                     'OREB',
+                                     'PF',
+                                     'PTS',
+                                     'REB',
+                                     'STL',
+                                     'TOV',
+                                     'D_FGA',
+                                     'D_FGM',
+                                     'PASS',
+                                     'C_DREB',
+                                     'C_OREB',
+                                     'C_REB',
+                                     'UC_DREB',
+                                     'UC_OREB',
+                                     'UC_REB',
+                                     ]
+
+
+def convert_total_stats_into_per_game_stats(stat_dict):
+    """
+
+    :param stat_dict:
+    :type stat_dict: dict
+    """
+    if 'GP' in stat_dict:
+        games_denominator = stat_dict['GP']
+    elif 'G' in stat_dict:
+        games_denominator = stat_dict['G']
+    else:
+        raise Exception('No "games" value in dict')
+    for k, v in stat_dict.items():
+        if k in values_to_adjust_to_per_game_mode:
+            stat_dict[k] = v/games_denominator
+
 
 def join_player_single_game_stats(game_logs_list, per_36=False):
     """
@@ -291,7 +337,7 @@ def _get_list_of_players_ids_from_players_object_list(players_object_list):
     """
     Name
     :param players_object_list: List of players object list
-    :type players_object_list: list[NBAPlayer]
+    :type players_object_list: list[playerScripts.NBAPlayer]
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
@@ -304,7 +350,7 @@ def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, ch
     :param lineup_dict:
     :type lineup_dict: dict
     :param players_object_list:
-    :type players_object_list: list[NBAPlayer]
+    :type players_object_list: list[playerScripts.NBAPlayer]
     :param check_all_players: Is single player's appearance in the lineup enough to return to determine result
     :type check_all_players: bool
     :return:
@@ -322,15 +368,15 @@ def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, ch
 def is_lineup_valid(lineup_dict, white_list, black_list):
     """
     Both lists empty - Every lineup is good
-    Only white list full - Only players in white list
-    Only black list full - Only players not in black list
-    Both lists full - Only players in white list, and not in black list
+    Only white list full - If all players from white list in lineup
+    Only black list full - If all players in black list not in lineup
+    Both lists full - If all players from white list in lineup, and all players in black list not in lineup
     :param lineup_dict:
     :type lineup_dict: dict
     :param white_list:
-    :type white_list: list[NBAPlayer]
+    :type white_list: list[playerScripts.NBAPlayer]
     :param black_list:
-    :type black_list: list[NBAPlayer]
+    :type black_list: list[playerScripts.NBAPlayer]
     :return:
     :rtype: bool
     """

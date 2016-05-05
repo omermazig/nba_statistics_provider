@@ -88,4 +88,12 @@ ENV/
 .ropeproject
 
 # Pickles
+pythonPickles/
 *.pickle
+
+# csvs
+csvs/
+*.csv
+
+
+

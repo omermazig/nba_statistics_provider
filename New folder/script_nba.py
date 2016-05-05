@@ -10,9 +10,8 @@ from teamScripts import NBATeam
 from leagueScripts import NBALeague
 from gameScripts import NBAGame, NBASingleSeasonGames
 
-sys.path.remove(path)
 import goldsberry
 
 if __name__ == "__main__":
-    sys.path.append(r'C:\Users\Administrator\Documents\NBA\pythonProjects')
     IPython.embed()
+    sys.path.remove(path)

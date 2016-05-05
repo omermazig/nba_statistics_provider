@@ -39,6 +39,7 @@ class NBAPlayer(object):
         :type initialize_stat_classes: bool
         """
         self.season = season
+        """:type : str"""
         if type(player_name_or_id) is int:
             identifying_key = 'PERSON_ID'
             filter_function = lambda dict1: dict1[identifying_key] and player_name_or_id == dict1[identifying_key]
@@ -59,7 +60,9 @@ class NBAPlayer(object):
         else:
             self.player_dict = filtered_player_dicts_list[0]
         self.player_id = self.player_dict["PERSON_ID"]
+        """:type : int"""
         self.player_name = self.player_dict["PLAYERCODE"]
+        """:type : str"""
 
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -89,12 +92,12 @@ class NBAPlayer(object):
         else:
             return None
 
-    @cached_property
+    @property
     def team_id(self):
         """
 
         :return: Last team player played for in the given season
-        :rtype:int
+        :rtype: int
         """
         if not hasattr(self, 'career_stats'):
             self._initialize_stat_class('career_stats')
@@ -203,6 +206,15 @@ class NBAPlayer(object):
         if self.player_stats_dict:
             return self.player_stats_dict['AST'] > 50
 
+    def is_player_over_700_minutes(self):
+        """
+
+        :return: Whether the player passed more the 50 assists this season or not
+        :rtype: bool
+        """
+        if self.player_stats_dict:
+            return self.player_stats_dict['MIN'] > 700
+
     # BLOCKED BY NBA - No longer provide defender distance per shot
     # def _get_average_defender_distance_depending_on_shot_result(self, shot_result):
     #     total_shots_with_result = 0
@@ -306,11 +318,7 @@ class NBAPlayer(object):
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.player_name))
-        else:
-            with self.current_team_object.year_by_year.object_manager.reinitialize_data_with_new_parameters(
-                    PerMode="Totals"):
-                team_stats_dict = [stats_dict for stats_dict in self.current_team_object.year_by_year.team_stats() if
-                                   stats_dict['YEAR'] == self.season]
+
         if self.player_stats_dict:
             player_fgm = self.player_stats_dict["FGM"]
             player_fg3m = self.player_stats_dict["FG3M"]
@@ -320,9 +328,9 @@ class NBAPlayer(object):
             player_fg3m = 0
             player_fga = 0
 
-        teammates_fgm = team_stats_dict[0]['FGM'] - player_fgm
-        teammates_fg3m = team_stats_dict[0]['FG3M'] - player_fg3m
-        teammates_fga = team_stats_dict[0]['FGA'] - player_fga
+        teammates_fgm = self.current_team_object.team_stats_dict['FGM'] - player_fgm
+        teammates_fg3m = self.current_team_object.team_stats_dict['FG3M'] - player_fg3m
+        teammates_fga = self.current_team_object.team_stats_dict['FGA'] - player_fga
         if teammates_fga == 0:
             return 0, 0, 0
         else:
@@ -482,10 +490,11 @@ class NBAPlayer(object):
                                                     x['VS_PLAYER_ID'] == self.player_id]
         team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
                                                      x['VS_PLAYER_ID'] == self.player_id]
-        if [] in [team_advanced_stats_with_player_off_court, team_advanced_stats_with_player_on_court]:
+        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
+            return team_advanced_stats_with_player_on_court[0]['NET_RATING'], \
+                   team_advanced_stats_with_player_off_court[0]['NET_RATING']
+        else:
             return 0, 0
-        return team_advanced_stats_with_player_on_court[0]['NET_RATING'], team_advanced_stats_with_player_off_court[0][
-            'NET_RATING']
 
     def get_team_net_rtg_on_off_court_diff(self):
         """

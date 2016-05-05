@@ -58,6 +58,9 @@ class NBALeague(object):
                 time.sleep(0.1)
                 print('Fetching %s team object...' % team_name)
                 team_object = teamScripts.NBATeam(team_id, season=self.season)
+                print("Initializing team game's objects ...")
+                # We want to initialize 'team_regular_season_game_objects' cached property
+                a = team_object.team_regular_season_game_objects
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
                         time.sleep(0.1)
@@ -75,8 +78,9 @@ class NBALeague(object):
                 in
                 players_not_on_team_dicts_list]
             for player_object in self._players_not_on_team_objects_list:
-                # We want to initialize 'player_stats_dict' cached property
+                # We want to initialize 'player_stats_dict' and 'current_team_object' cached properties
                 a = player_object.player_stats_dict
+                b = player_object.current_team_object
 
     @property
     def player_objects_list(self):
@@ -86,7 +90,7 @@ class NBALeague(object):
         int __init__) and the players that are not on teams (Initialized under self._players_not_on_team_objects_list
         in __init__)
         :return:
-        :rtype:list[NBAPlayer]
+        :rtype:list[playerScripts.NBAPlayer]
         """
         players_on_teams_objects_list = []
         for team_object in self.team_objects_list:
@@ -116,7 +120,7 @@ class NBALeague(object):
         :param player_name: The desired player's name or part of it
         :type player_name: str
         :return: The desired player's object
-        :rtype: NBAPlayer
+        :rtype: playerScripts.NBAPlayer
         """
         filtered_player_objects_list = [player_object for player_object in self.player_objects_list if
                                         player_name in player_object.player_name]
@@ -124,7 +128,10 @@ class NBALeague(object):
         if filtered_player_objects_list_length == 0:
             raise NoSuchPlayer('There was no player matching the given name')
         elif filtered_player_objects_list_length > 1:
-            raise TooMuchPlayers('There were more then one player matching the given name')
+            raise TooMuchPlayers(
+                'There were more then one player matching the given name:\n%s' % [player_object.player_name for
+                                                                                  player_object in
+                                                                                  filtered_player_objects_list])
         else:
             return filtered_player_objects_list[0]
 
@@ -181,23 +188,55 @@ class NBALeague(object):
 
     def get_players_sorted_by_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
         """
-
+        Sort all the players WITH MORE THEN 50 ASSISTS this season, by how much better their teammates shot the ball
+        with them passing to them (rather then not)
         :return:
         :rtype: list[playerScripts.NBAPlayer]
         """
+        print('Filtering out players with not enough shots...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_50_assists()]
 
         print('Getting relevant data...')
         players_name_and_result = []
+        i = 1
         for my_player_object in filtered_player_objects_list:
+            time.sleep(1)
+            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 players_name_and_result.append((my_player_object.player_name,
                                                 my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots()))
             except PlayerHasMoreThenOneTeam:
                 pass
+            i += 1
         print('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0], reverse=True)
+        return players_name_and_result
+
+    def get_players_sorted_by_team_net_rtg_on_off_court_diff(self):
+        """
+        Sort all the players WITH MORE THEN 700 MINUTES this season, by how much better their team's net rating was
+        when they were on the court (rather then not)
+        :return:
+        :rtype: list[playerScripts.NBAPlayer]
+        """
+        print('Filtering out players with not enough shots...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+                                        my_player_object.is_player_over_700_minutes()]
+
+        print('Getting relevant data...')
+        players_name_and_result = []
+        i = 1
+        for my_player_object in filtered_player_objects_list:
+            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            try:
+                players_name_and_result.append((my_player_object.player_name,
+                                                my_player_object.get_team_net_rtg_on_off_court()))
+            except PlayerHasMoreThenOneTeam:
+                pass
+            i += 1
+        print('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
         return players_name_and_result
 
     def print_league_playtype_point_per_possession(self):
@@ -209,6 +248,17 @@ class NBALeague(object):
         for k, v in self.playtype.__dict__.items():
             print('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
 
+    def pickle_league_object(self):
+        """
+        Caching self object using pickle, so we don't have to create it every time (Take a LONG time)
+        :return:
+        :rtype: None
+        """
+        league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
+        with open(league_object_pickle_path, 'wb') as file1:
+            'Updating pickle...'
+            pickle.dump(self, file1)
+
     @staticmethod
     def get_cached_league_object(season='2015'):
         """
@@ -218,8 +268,7 @@ class NBALeague(object):
         :return:
         :rtype: NBALeague
         """
-        with open(league_object_pickle_path_regex.format(season=season),
-                  "rb") as file1:
+        with open(league_object_pickle_path_regex.format(season=season), "rb") as file1:
             player_objects_2015 = pickle.load(file1)
         return player_objects_2015
 
@@ -228,8 +277,8 @@ if __name__ == "__main__":
     for year in range(2015, 2012, -1):
         league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
                                 initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
-        league_object_pickle_path = league_object_pickle_path_regex.format(season=league_year.season[:4] + 'kuku')
-        with open(league_object_pickle_path, 'wb') as file1:
+        my_league_object_pickle_path = league_object_pickle_path_regex.format(season=league_year.season[:4] + 'kuku')
+        with open(my_league_object_pickle_path, 'wb') as file1:
             'Updating pickle...'
             pickle.dump(league_year, file1)
 
