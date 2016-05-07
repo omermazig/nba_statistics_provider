@@ -3,6 +3,10 @@ from __future__ import division
 import os
 import pickle
 import time
+import functools
+import glob
+import collections
+import inspect
 
 import playerScripts
 import utilsScripts
@@ -44,10 +48,41 @@ class PlayTypeLeagueAverage(object):
         return points_scored / possessions
 
 
+class NBALeagues(object):
+    def __init__(self, league_objects=None):
+        """
+        An object that represent multiple league objects
+        :param league_objects:
+        :type league_objects: list[NBALeague]
+        """
+        self.league_objects_list = league_objects if isinstance(league_objects, list) else []
+        for func_name, func in [i for i in inspect.getmembers(NBALeague, predicate=inspect.isfunction) if
+                                not i[0].startswith('get')]:
+            setattr(self, 'get_%s_results_for_all_league_objects' % func_name,
+                    functools.partial(self.return_function_result_for_all_league_objects, func=func))
+
+    def append_all_cached_league_objects(self):
+        """
+
+        :return:
+        :rtype: None
+        """
+        for cached_season in [league_object_path.strip('.pickle')[-4:] for league_object_path in
+                              glob.glob(utilsScripts.pickles_folder_path + '\*league_object_*')]:
+            self.league_objects_list.append(NBALeague.get_cached_league_object(cached_season))
+
+    def return_function_result_for_all_league_objects(self, func, **kwargs):
+        passed_function_results_by_seasons_ordered_dict = collections.OrderedDict()
+        for league_object in self.league_objects_list:
+            passed_function_results_by_seasons_ordered_dict[league_object.season] = func(self=league_object, **kwargs)
+        return passed_function_results_by_seasons_ordered_dict
+
+
 class NBALeague(object):
     def __init__(self, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
                  initialize_team_objects=False, initialize_player_objects=False):
         self.season = season
+        self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         self.team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -254,8 +289,7 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
-        league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
-        with open(league_object_pickle_path, 'wb') as file1:
+        with open(self.league_object_pickle_path, 'wb') as file1:
             'Updating pickle...'
             pickle.dump(self, file1)
 

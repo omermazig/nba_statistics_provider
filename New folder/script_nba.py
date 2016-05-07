@@ -7,7 +7,7 @@ path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(path)
 from playerScripts import NBAPlayer
 from teamScripts import NBATeam
-from leagueScripts import NBALeague
+from leagueScripts import NBALeague, NBALeagues
 from gameScripts import NBAGame, NBASingleSeasonGames
 
 import goldsberry
