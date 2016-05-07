@@ -183,10 +183,13 @@ class NBAPlayer(object):
         :return: Whether or not a player SHOT more threes this season then the attempts_limit
         :rtype : bool
         """
-        try:
-            return self.player_stats_dict['FG3A'] > attempts_limit
-        except IndexError:
+        if not self.player_stats_dict:
             return False
+        else:
+            try:
+                return self.player_stats_dict['FG3A'] > attempts_limit
+            except IndexError:
+                return False
 
     def is_player_over_200_fga(self):
         """
