@@ -37,21 +37,32 @@ values_to_adjust_to_per_game_mode = ['AST',
                                      ]
 
 
-def convert_total_stats_into_per_game_stats(stat_dict):
+class PrettyFloat(float):
+    def __repr__(self):
+        return "%0.2f" % self
+
+
+def get_per_game_from_total_stats(stat_dict):
     """
 
     :param stat_dict:
     :type stat_dict: dict
     """
+    per_game_stat_dict = {}
     if 'GP' in stat_dict:
         games_denominator = stat_dict['GP']
     elif 'G' in stat_dict:
         games_denominator = stat_dict['G']
     else:
         raise Exception('No "games" value in dict')
+
     for k, v in stat_dict.items():
         if k in values_to_adjust_to_per_game_mode:
-            stat_dict[k] = v/games_denominator
+            per_game_stat_dict[k] = PrettyFloat(v / games_denominator)
+        else:
+            per_game_stat_dict[k] = v
+
+    return per_game_stat_dict
 
 
 def join_player_single_game_stats(game_logs_list, per_36=False):
@@ -276,6 +287,10 @@ def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes
     else:
         effective_field_goal_percentage = (field_goal_makes + (0.5 * three_pointer_makes)) / field_goal_attempts
     return effective_field_goal_percentage
+
+
+def calculate_ppp_from_effective_field_goal_percent(effective_field_goal_percent):
+    return PrettyFloat(effective_field_goal_percent * 2)
 
 
 def get_effective_field_goal_relevant_data_from_multiple_shot_charts(shot_charts):
