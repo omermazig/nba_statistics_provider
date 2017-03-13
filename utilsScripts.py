@@ -1,3 +1,6 @@
+"""
+All sort of util functions to help other classes with calculations
+"""
 from __future__ import division
 import functools
 import os
@@ -38,6 +41,9 @@ values_to_adjust_to_per_game_mode = ['AST',
 
 
 class PrettyFloat(float):
+    """
+    A float that has a better print
+    """
     def __repr__(self):
         return "%0.2f" % self
 
@@ -65,7 +71,7 @@ def get_per_game_from_total_stats(stat_dict):
     return per_game_stat_dict
 
 
-def join_player_single_game_stats(game_logs_list, per_36=False):
+def join_single_game_stats(game_logs_list, per_36=False):
     """
 
     :param game_logs_list:
@@ -100,7 +106,7 @@ def join_player_single_game_stats(game_logs_list, per_36=False):
             else:
                 for category_name, category_value in game_log.items():
                     if category_name not in keys_to_not_divide:
-                        game_log[category_name] = category_value / (game_log['MIN'] / 36)
+                        game_log[category_name] = (category_value / game_log['MIN']) * 36
         for game_log in game_logs_to_remove:
             game_logs_list.remove(game_log)
 
@@ -148,6 +154,9 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
 
     dict2 = {}
     for key, value in dict1.items():
+        value = [i for i in value if i is not None]
+        if not value:
+            dict2[key] = None
         if key in keys_to_discard:
             # dict1.pop(key)
             pass
@@ -290,6 +299,13 @@ def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes
 
 
 def calculate_ppp_from_effective_field_goal_percent(effective_field_goal_percent):
+    """
+
+    :param effective_field_goal_percent:
+    :type effective_field_goal_percent:
+    :return:
+    :rtype:
+    """
     return PrettyFloat(effective_field_goal_percent * 2)
 
 
