@@ -1,3 +1,7 @@
+"""
+All objects that represent a single season of the nba. NBALeague is the basic object.
+Also contains necessary imports functions and consts.
+"""
 from __future__ import print_function
 from __future__ import division
 import os
@@ -11,13 +15,18 @@ import inspect
 import playerScripts
 import utilsScripts
 import teamScripts
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam, \
+    PlayerHasNoTeam
 import goldsberry
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
 
 
 class PlayTypeLeagueAverage(object):
+    """
+    An object that represent the league average points per possession for every play type
+    """
+
     def __init__(self):
         playtype_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.playtype) if
                                   not stat_class1.startswith('_')]
@@ -49,9 +58,13 @@ class PlayTypeLeagueAverage(object):
 
 
 class NBALeagues(object):
+    """
+    Represents multiple accumulated season in the nba.
+    """
+
     def __init__(self, league_objects=None):
         """
-        An object that represent multiple league objects
+        An object that represent multiple league objects from different years
         :param league_objects:
         :type league_objects: list[NBALeague]
         """
@@ -59,7 +72,7 @@ class NBALeagues(object):
         for func_name, func in [i for i in inspect.getmembers(NBALeague, predicate=inspect.isfunction) if
                                 not i[0].startswith('get')]:
             setattr(self, 'get_%s_results_for_all_league_objects' % func_name,
-                    functools.partial(self.return_function_result_for_all_league_objects, func=func))
+                    functools.partial(self.get_function_result_for_all_league_objects, func=func))
 
     def append_all_cached_league_objects(self):
         """
@@ -71,7 +84,18 @@ class NBALeagues(object):
                               glob.glob(utilsScripts.pickles_folder_path + '\*league_object_*')]:
             self.league_objects_list.append(NBALeague.get_cached_league_object(cached_season))
 
-    def return_function_result_for_all_league_objects(self, func, **kwargs):
+    def get_function_result_for_all_league_objects(self, func, **kwargs):
+        """
+        Receives a function and it's params, runs it with every league's object in the class as 'self',
+        and returns all the results as an ordered dict
+        :param func: function to run on all league objects that the class possesses.
+        :type func: lambda
+        :param kwargs: The parameters of the function.
+        BE CAREFUL - THE FUNCTION WILL NOT THROW IF WRONG PARAMETERS ARE PASSED
+        :type kwargs: dict
+        :return:
+        :rtype: None
+        """
         passed_function_results_by_seasons_ordered_dict = collections.OrderedDict()
         for league_object in self.league_objects_list:
             passed_function_results_by_seasons_ordered_dict[league_object.season] = func(self=league_object, **kwargs)
@@ -79,43 +103,48 @@ class NBALeagues(object):
 
 
 class NBALeague(object):
+    """
+    An object that represent a single nba season.
+    """
+
     def __init__(self, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
-                 initialize_team_objects=False, initialize_player_objects=False):
+                 initialize_team_objects=False, initialize_player_objects=False, initialize_game_objects=False):
         self.season = season
         self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         self.team_objects_list = []
+        self._players_not_on_team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
+            print('Initializing league playtypes...')
             self.playtype = PlayTypeLeagueAverage()
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
             for team_name, team_id in teamScripts.teams_id_dict.items():
                 time.sleep(0.1)
-                print('Fetching %s team object...' % team_name)
-                team_object = teamScripts.NBATeam(team_id, season=self.season)
-                print("Initializing team game's objects ...")
-                # We want to initialize 'team_regular_season_game_objects' cached property
-                a = team_object.team_regular_season_game_objects
+                team_object = teamScripts.NBATeam(team_id, season=self.season,
+                                                  initialize_game_objects=initialize_game_objects)
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
+                        # TODO - Why does pycharm not recognize player_object as playerScripts.NBAPlayer object?
                         time.sleep(0.1)
-                        print('    Initializing stat classes for %s object..' % player_object.player_name)
                         player_object.initialize_stat_classes()
-                        # We want to initialize 'player_stats_dict' cached property
+                        # Cache player_stats_dict objects. a is unused
+                        # noinspection PyUnusedLocal
                         a = player_object.player_stats_dict
+                        if initialize_game_objects:
+                            print('Initializing players game objects for %s object..' % player_object.player_name)
+                            # Cache game objects. a is unused
+                            # noinspection PyUnusedLocal
+                            a = player_object.player_regular_season_game_objects
                 self.team_objects_list.append(team_object)
-            print('Initializing players with no current team...')
-            players_not_on_team_dicts_list = [player_dict for player_dict in
-                                              goldsberry.PlayerList(season=season).players() if
-                                              not player_dict['TEAM_ID']]
-            self._players_not_on_team_objects_list = [
-                playerScripts.NBAPlayer(player_name_or_id=player_dict['PERSON_ID'], season=self.season) for player_dict
-                in
-                players_not_on_team_dicts_list]
-            for player_object in self._players_not_on_team_objects_list:
-                # We want to initialize 'player_stats_dict' and 'current_team_object' cached properties
-                a = player_object.player_stats_dict
-                b = player_object.current_team_object
+            if initialize_player_objects:
+                self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
+
+    def __del__(self):
+        for team_object in self.team_objects_list:
+            del team_object
+        for player_with_no_team_object in self._players_not_on_team_objects_list:
+            del player_with_no_team_object
 
     @property
     def player_objects_list(self):
@@ -139,6 +168,7 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
+        print('Initializing league stat classes...')
         public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.league) if
                                      not stat_class1.startswith('_')]
 
@@ -146,6 +176,25 @@ class NBALeague(object):
             stat_class = getattr(goldsberry.league, stat_class_name)(season=self.season)
             """:type : NbaDataProvider"""
             setattr(self, stat_class_name, stat_class)
+
+    def _initialize_players_not_on_team_objects(self, initialize_game_objects=False):
+        """
+
+        :return:
+        :rtype: None
+        """
+        print('Initializing players with no current team...')
+        players_not_on_team_dicts_list = [player_dict for player_dict in
+                                          goldsberry.PlayerList(season=self.season).players() if
+                                          not player_dict['TEAM_ID']]
+        self._players_not_on_team_objects_list = [
+            playerScripts.NBAPlayer(player_name_or_id=player_dict['PERSON_ID'], season=self.season,
+                                    initialize_game_objects=initialize_game_objects) for player_dict in
+            players_not_on_team_dicts_list]
+        for player_object in self._players_not_on_team_objects_list:
+            # Cache player_stats_dict objects. a is unused
+            # noinspection PyUnusedLocal
+            a = player_object.player_stats_dict
 
     def get_player_object_by_name(self, player_name):
         """
@@ -158,13 +207,13 @@ class NBALeague(object):
         :rtype: playerScripts.NBAPlayer
         """
         filtered_player_objects_list = [player_object for player_object in self.player_objects_list if
-                                        player_name in player_object.player_name]
+                                        player_name in player_object.name]
         filtered_player_objects_list_length = len(filtered_player_objects_list)
         if filtered_player_objects_list_length == 0:
             raise NoSuchPlayer('There was no player matching the given name')
         elif filtered_player_objects_list_length > 1:
             raise TooMuchPlayers(
-                'There were more then one player matching the given name:\n%s' % [player_object.player_name for
+                'There were more then one player matching the given name:\n%s' % [player_object.name for
                                                                                   player_object in
                                                                                   filtered_player_objects_list])
         else:
@@ -201,7 +250,7 @@ class NBALeague(object):
         league_all_shooters_lineups_dicts = []
         for all_shooters_lineups_dict_for_a_team in [
             team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit) for team_object in
-            self.team_objects_list]:
+                self.team_objects_list]:
             league_all_shooters_lineups_dicts += all_shooters_lineups_dict_for_a_team
         return league_all_shooters_lineups_dicts
 
@@ -214,8 +263,10 @@ class NBALeague(object):
         :rtype:dict[dict]
         """
         league_all_shooters_lineups_dicts = {}
-        for team_id, team_all_shooters_lineups_dicts in [(team_object.team_id, team_object.get_all_shooters_lineup_dicts
-            (attempts_limit=attempts_limit)) for team_object in self.team_objects_list]:
+        teams_all_shooters_lineup_dicts = [
+            (team_object.team_id, team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit)) for
+            team_object in self.team_objects_list]
+        for team_id, team_all_shooters_lineups_dicts in teams_all_shooters_lineup_dicts:
             team_name = teamScripts.teams_name_dict[team_id]
             league_all_shooters_lineups_dicts[team_name] = utilsScripts.join_advanced_lineup_dicts(
                 team_all_shooters_lineups_dicts)
@@ -226,24 +277,23 @@ class NBALeague(object):
         Sort all the players WITH MORE THEN 50 ASSISTS this season, by how much better their teammates shot the ball
         with them passing to them (rather then not)
         :return:
-        :rtype: list[playerScripts.NBAPlayer]
+        :rtype: list[(string, (float, int))]
         """
-        print('Filtering out players with not enough shots...')
+        print('Filtering out players with not enough assists...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
-                                        my_player_object.is_player_over_50_assists()]
+                                        my_player_object.is_player_over_assists_limit()]
 
         print('Getting relevant data...')
         players_name_and_result = []
-        i = 1
-        for my_player_object in filtered_player_objects_list:
-            time.sleep(1)
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
             print('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
-                players_name_and_result.append((my_player_object.player_name,
-                                                my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots()))
+                diff_in_teammates_efg_percentage = \
+                    my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots()
+                players_name_and_result.append((my_player_object.name,
+                                                diff_in_teammates_efg_percentage))
             except PlayerHasMoreThenOneTeam:
                 pass
-            i += 1
         print('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0], reverse=True)
         return players_name_and_result
@@ -253,25 +303,69 @@ class NBALeague(object):
         Sort all the players WITH MORE THEN 700 MINUTES this season, by how much better their team's net rating was
         when they were on the court (rather then not)
         :return:
-        :rtype: list[playerScripts.NBAPlayer]
+        :rtype: list[(string, (float, float))]
         """
-        print('Filtering out players with not enough shots...')
+        print('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
-                                        my_player_object.is_player_over_700_minutes()]
+                                        my_player_object.is_player_over_minutes_limit()]
 
         print('Getting relevant data...')
         players_name_and_result = []
-        i = 1
-        for my_player_object in filtered_player_objects_list:
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
             print('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
-                players_name_and_result.append((my_player_object.player_name,
+                players_name_and_result.append((my_player_object.name,
                                                 my_player_object.get_team_net_rtg_on_off_court()))
-            except PlayerHasMoreThenOneTeam:
+            except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
                 pass
-            i += 1
         print('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
+        return players_name_and_result
+
+    def get_players_sorted_by_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet(self):
+        """
+        Sort all the players WITH MORE THEN 200 FGA this season, by how much better their EFG% was on uncontested
+        shots than on contested shots.
+        :return:
+        :rtype: list[(string, (float, float))]
+        """
+        print('Filtering out players with not enough shot attempts...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+                                        my_player_object.is_player_over_fga_outside_10_feet_limit()]
+
+        print('Getting relevant data...')
+        players_name_and_result_list = []
+
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            diff_in_teammates_efg_percentage = \
+                my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
+            players_name_and_result_list.append((my_player_object.name, diff_in_teammates_efg_percentage))
+        print('Sorting...')
+        players_name_and_result_list.sort(key=lambda x: x[1][0], reverse=True)
+        return players_name_and_result_list
+
+    def get_players_sorted_by_percentage_of_shots_outside_10_feet_that_were_uncontested(self):
+        """
+        Sort all the players WITH MORE THEN 200 FGA this season, by how much better their team's net rating was
+        when they were on the court (rather then not)
+        :return:
+        :rtype: list[(string, (float, float))]
+        """
+        print('Filtering out players with not enough shot attempts...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+                                        my_player_object.is_player_over_fga_limit()]
+
+        print('Getting relevant data...')
+        players_name_and_result = []
+
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            diff_in_teammates_efg_percentage = \
+                my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
+            players_name_and_result.append((my_player_object.name, diff_in_teammates_efg_percentage))
+        print('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
         return players_name_and_result
 
     def print_league_playtype_point_per_possession(self):
@@ -289,12 +383,12 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
-        with open(self.league_object_pickle_path, 'wb') as file1:
+        with open(self.league_object_pickle_path, 'wb') as file_to_write_to:
             'Updating pickle...'
-            pickle.dump(self, file1)
+            pickle.dump(self, file_to_write_to)
 
     @staticmethod
-    def get_cached_league_object(season='2015'):
+    def get_cached_league_object(season=None):
         """
 
         :param season:
@@ -302,8 +396,10 @@ class NBALeague(object):
         :return:
         :rtype: NBALeague
         """
-        with open(league_object_pickle_path_regex.format(season=season), "rb") as file1:
-            player_objects_2015 = pickle.load(file1)
+        if not season:
+            season = goldsberry.apiparams.default_season[:4]
+        with open(league_object_pickle_path_regex.format(season=season), "rb") as file_to_read:
+            player_objects_2015 = pickle.load(file_to_read)
         return player_objects_2015
 
 
