@@ -1,18 +1,25 @@
+"""
+All objects that represent an nba game. NBAGame is the basic object.
+Also contains necessary imports functions and consts
+"""
 import goldsberry
 from goldsberry import apiconvertor
 from goldsberry.apiparams import default_season
 
 
 class NBAGame(object):
+    """
+    An object that represent a single nba game.
+    """
     def __init__(self, game_dict, initialize_stat_classes=False):
         """
 
         :param game_dict:
-        :type game_dict:dict
+        :type game_dict: dict
         :param initialize_stat_classes:
-        :type initialize_stat_classes:bool
+        :type initialize_stat_classes: bool
         :return: an object that represent one nba game
-        :rtype : An NBA team object
+        :rtype : An NBA game object
         """
         self.game_dict = game_dict
 
@@ -27,12 +34,29 @@ class NBAGame(object):
 
         self.game_id = self.game_dict["GAME_ID"]
         if initialize_stat_classes:
-            public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.game) if
-                                         not stat_class1.startswith('_')]
-            for stat_class_name in public_stat_classes_names:
-                stat_class = getattr(goldsberry.game, stat_class_name)(self.game_id)
-                """:type : NbaDataProvider"""
-                setattr(self, stat_class_name, stat_class)
+            self.initialize_stat_classes()
+
+    def _initialize_stat_class(self, stat_class_name):
+        """
+
+        :param stat_class_name:
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
+        """:type : NbaDataProvider"""
+        setattr(self, stat_class_name, stat_class)
+
+    def initialize_stat_classes(self):
+        """
+
+        :return:
+        :rtype: None
+        """
+        for stat_class_name in [my_stat_class for my_stat_class in dir(goldsberry.game) if
+                                not my_stat_class.startswith('_')]:
+            self._initialize_stat_class(stat_class_name)
 
     def get_broadcasting_network(self):
         """
@@ -40,7 +64,10 @@ class NBAGame(object):
         :return:
         :rtype:str
         """
-        return goldsberry.game.boxscore_summary(self.game_id).game_summary()[0]['NATL_TV_BROADCASTER_ABBREVIATION']
+        relevant_stat_class = 'boxscore_summary'
+        if not hasattr(self, relevant_stat_class):
+            self._initialize_stat_class(relevant_stat_class)
+        return self.boxscore_summary.game_summary()[0]['NATL_TV_BROADCASTER_ABBREVIATION']
 
     def is_game_on_national_tv(self, broadcasters_list=None):
         """
@@ -67,13 +94,21 @@ class NBAGame(object):
         :return:
         :rtype:bool
         """
-        return goldsberry.game.boxscore_summary(self.game_id).game_summary()[0]['HOME_TEAM_ID'] == team_id
+        relevant_stat_class = 'boxscore_summary'
+        if not hasattr(self, relevant_stat_class):
+            self._initialize_stat_class(relevant_stat_class)
+        return self.boxscore_summary.game_summary()[0]['HOME_TEAM_ID'] == team_id
 
 
 class NBAGameTeam(NBAGame):
+    """
+    An object that represent a single nba game from a team's perspective.
+    """
     def __init__(self, game_dict, initialize_stat_classes=False):
-        NBAGame.__init__(self, game_dict, initialize_stat_classes)
+        NBAGame.__init__(self, game_dict, initialize_stat_classes=False)
         self.team_id = self.game_dict['TEAM_ID']
+        if initialize_stat_classes:
+            self.initialize_stat_classes()
 
     def is_home_game(self):
         """
@@ -81,16 +116,64 @@ class NBAGameTeam(NBAGame):
         :return:
         :rtype:bool
         """
-        self.is_team_hosting_game(self.team_id)
+        return self.is_team_hosting_game(self.team_id)
+
+    def _initialize_stat_class(self, stat_class_name):
+        """
+
+        :param stat_class_name:
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
+        """:type : NbaDataProvider"""
+        if hasattr(stat_class, 'team_stats'):
+            try:
+                stat_dict = [team_stat_dict for team_stat_dict in stat_class.team_stats() if
+                             team_stat_dict['TEAM_ID'] == self.team_id][0]
+            except IndexError:
+                stat_dict = None
+            setattr(self, stat_class_name, stat_dict)
+        else:
+            setattr(self, stat_class_name, stat_class)
 
 
 class NBAGamePlayer(NBAGame):
+    """
+    An object that represent a single nba game from a player's perspective.
+    """
     def __init__(self, game_dict, initialize_stat_classes=False):
-        NBAGame.__init__(self, game_dict, initialize_stat_classes)
+        NBAGame.__init__(self, game_dict, initialize_stat_classes=False)
         self.player_id = self.game_dict['Player_ID']
+        if initialize_stat_classes:
+            self.initialize_stat_classes()
+
+    def _initialize_stat_class(self, stat_class_name):
+        """
+
+        :param stat_class_name:
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
+        """:type : NbaDataProvider"""
+        if hasattr(stat_class, 'player_stats'):
+            try:
+                stat_dict = [player_stat_dict for player_stat_dict in stat_class.player_stats() if
+                             player_stat_dict['PLAYER_ID'] == self.player_id][0]
+            except IndexError:
+                stat_dict = None
+            setattr(self, stat_class_name, stat_dict)
+        else:
+            setattr(self, stat_class_name, stat_class)
 
 
 class NBASingleSeasonGames(object):
+    """
+    An object that represent a season of nba games
+    """
     def __init__(self, season=default_season, include_playoffs=False, include_preseason=False):
         """
         returns a list of short dict summaries for every nba game played in history
