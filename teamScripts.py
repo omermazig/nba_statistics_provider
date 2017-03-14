@@ -1,77 +1,202 @@
+"""
+NBATeam object and necessary imports functions and consts
+"""
 import pickle
 import os
-import goldsberry
-from playerScripts import NBAPlayer
-from playerScripts import NoSuchPlayer
-from gameScripts import NBAGames
-from utilsScripts import join_advanced_lineup_dicts, is_lineup_valid, pickles_folder_path
+from cached_property import cached_property
 
-teams_id_dict_pickle_path = os.path.join(pickles_folder_path, "nba_teams_numbers_dict.pickle")
+import goldsberry
+import playerScripts
+import gameScripts
+import utilsScripts
+from goldsberry.apiparams import default_season
+import generalStatsScripts
+
+teams_id_dict_pickle_path = os.path.join(utilsScripts.pickles_folder_path, "nba_teams_numbers_dict.pickle")
 with open(teams_id_dict_pickle_path, 'rb') as file1:
     teams_id_dict = pickle.load(file1)
     """:type : dict"""
+teams_name_dict = {v: k for k, v in teams_id_dict.items()}
 
-nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(pickles_folder_path,
+nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(utilsScripts.pickles_folder_path,
                                                                'nba_teams_all_shooters_lineups_dicts_{season}.pickle')
 
 
-class NBATeam(object):
-    def __init__(self, team_name_or_id, season='2015', initialize_stat_classes=True):
-        """
+class NBATeam(generalStatsScripts.NBAStatObject):
+    """
+    An object that represent a single nba team in a single season.
+    """
 
-        :rtype : An NBA team object
+    def __init__(self, team_name_or_id, season=default_season, initialize_stat_classes=True,
+                 initialize_game_objects=False):
         """
-        if type(team_name_or_id) is int:
-            self.team_id = team_name_or_id
-        elif type(team_name_or_id) is str:
-            self.team_id = teams_id_dict[team_name_or_id]
-        else:
-            raise Exception('Constructor only receives string ot integer')
+        :param team_name_or_id:
+        :type team_name_or_id: int or string
+        :return: An NBA team object
+        :rtype : NBATeam
+        """
+        self.team_name_or_id = team_name_or_id
+        super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
+                                      goldsberry_object_name="team")
+        print('Initialize %s team object...' % self.name)
         self.season = season
-        if initialize_stat_classes:
-            for stat_class in filter(lambda x: not x.startswith('_'), dir(goldsberry.team)):
-                stat_class_function = getattr(goldsberry.team, stat_class)
-                if 'season' in stat_class_function.__init__.func_code.co_varnames:
-                    setattr(self, stat_class, stat_class_function(team_id=self.team_id, season=self.season))
-                else:
-                    setattr(self, stat_class, stat_class_function(team_id=self.team_id))
-        self.games_summary_dicts = NBAGames(season).get_specific_team_games(self.team_id)
-        self.players_objects_list = []
-        """:type : list[NBAPlayer]"""
+        if initialize_game_objects:
+            # Cache game objects. a is unused
+            # noinspection PyUnusedLocal
+            a = self.team_regular_season_game_objects
 
-    def __repr__(self):
-        teams_name_dict = {v: k for k, v in teams_id_dict.items()}
-        return "{team_name} Object".format(team_id=teams_name_dict[self.team_id])
+    def __cmp__(self, other):
+        """
+        The compare between two NBATeam objects is to check whether they have the same team id And the same season
+        :param other:
+        :type other: self
+        :return:
+        :rtype: bool
+        """
+        return self.id == other.id and self.season == other.season
 
-    def initialize_players_objects(self, initialize_stat_classes=True, override=False):
+    def __del__(self):
+        for player_object in self.current_players_objects:
+            del player_object
+
+    @property
+    def name(self):
         """
-        Fills (If empty) member 'players_objects_list' of class with a list of player objects for players on the roster
+
+        :return:
+        :rtype: str
         """
-        if not override and self.players_objects_list:
-            raise Exception('Players_objects_list object is already set')
+        if type(self.team_name_or_id) is str:
+            return self.team_name_or_id.lower()
+        elif type(self.team_name_or_id) is int:
+            return teams_name_dict[self.id]
         else:
-            self.players_objects_list = []
-            for player_dict in goldsberry.team.roster(team_id=self.team_id, season=self.season).players():
-                try:
-                    nba_player_object = NBAPlayer(PERSON_ID=player_dict['PLAYER_ID'],
-                                                  season=self.season,
-                                                  initialize_stat_classes=initialize_stat_classes)
-                    self.players_objects_list.append(nba_player_object)
-                except NoSuchPlayer:
-                    print (
-                        "{player_name} was not found in leagues players, even though he's on the team roster".format(
-                            player_name=player_dict['PLAYER']))
-                except Exception as e:
-                    self.players_objects_list = []
-                    raise e
+            raise Exception('Constructor only receives string or integer')
 
-    def get_filtered_lineup_dicts(self, white_list=None, black_list=None):
+    @property
+    def id(self):
         """
 
+        :return:
+        :rtype: str
+        """
+        if type(self.team_name_or_id) is int:
+            return self.team_name_or_id
+        elif type(self.team_name_or_id) is str:
+            return teams_id_dict[self.team_name_or_id]
+        else:
+            raise Exception('Constructor only receives string or integer')
+
+    @cached_property
+    def team_stats_dict(self):
+        """
+
+        :return:
+        :rtype:
+        """
+        self._initialize_stat_class_if_not_initialized('year_by_year')
+        team_stats_dict = [stats_dict for stats_dict in self.year_by_year.team_stats() if
+                           stats_dict['YEAR'] == self.season]
+        return team_stats_dict[0]
+
+    @property
+    def first_year(self):
+        """
+
+        :return: The first year that the object existed
+        :rtype: int
+        """
+        self._initialize_stat_class_if_not_initialized('year_by_year')
+        return int(self.team_info.info()[0]['MIN_YEAR'])
+
+    @property
+    def last_year(self):
+        """
+
+        :return: The first year that the object existed
+        :rtype: int
+        """
+        self._initialize_stat_class_if_not_initialized('year_by_year')
+        return int(self.team_info.info()[0]['MAX_YEAR'])
+
+    @cached_property
+    def team_regular_season_game_objects(self):
+        """
+
+        :return:
+        :rtype: list[NBAGameTeam]
+        """
+        regular_season_game_objects = []
+        for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
+            print('Initializing game number %s' % (game_number + 1))
+            regular_season_game_objects.append(gameScripts.NBAGameTeam(game_log, initialize_stat_classes=True))
+        return regular_season_game_objects
+
+    @property
+    def stats_page_url(self):
+        """
+        Om NBA.COM
+        :return:
+        :rtype: str
+        """
+        player_stat_page_regex = "http://stats.nba.com/team/#!/{id}/stats/"
+        return player_stat_page_regex.format(player_id=self.id)
+
+    @cached_property
+    def current_players_objects(self):
+        """
+
+        :return:
+        :rtype: list[playerScripts.NBAPlayer]
+        """
+        return self._generate_current_players_objects(initialize_stat_classes=False)
+
+    def _initialize_stat_class_if_not_initialized(self, stat_class_name):
+        """
+        Checks whether a stat class is already initialized, and initializes it if not
+        :param stat_class_name: stat_class name to potentially initialize
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        if not hasattr(self, stat_class_name):
+            self._initialize_stat_class(stat_class_name)
+
+    def _generate_current_players_objects(self, initialize_stat_classes):
+        """
+        Returns a list of player objects for players on the team's roster
+        :param initialize_stat_classes:
+        :type initialize_stat_classes: bool
+        :return:
+        :rtype: list[playerScripts.NBAPlayer]
+        """
+        players_objects_list = []
+        for player_dict_on_roster in goldsberry.team.roster(team_id=self.id, season=self.season).players():
+            player_name = player_dict_on_roster['PLAYER']
+            player_id = player_dict_on_roster['PLAYER_ID']
+            try:
+                nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_id,
+                                                            season=self.season,
+                                                            initialize_stat_classes=initialize_stat_classes)
+                nba_player_object.current_team_object = self
+                players_objects_list.append(nba_player_object)
+            except playerScripts.NoSuchPlayer:
+                print(
+                    "{player_name} was not found in leagues players, even though he's on the team roster".format(
+                        player_name=player_name))
+            except Exception as e:
+                raise e
+        return players_objects_list
+
+    def get_filtered_lineup_dicts(self, lineups_list=None, white_list=None, black_list=None):
+        """
+
+        :param lineups_list: lineups list to filter valid lineups from. If None, uses all team's lineups from reg season
+        :type lineups_list: list[dict]
         :param white_list: player objects white list
-        :type white_list: list[NBAPlayer]
+        :type white_list: list[playerScripts.NBAPlayer]
         :param black_list: player objects black list
-        :type black_list: list[NBAPlayer]
+        :type black_list: list[playerScripts.NBAPlayer]
         :return: Filtered dict based on the parameters given
         :rtype: list[dict]
         """
@@ -80,16 +205,36 @@ class NBATeam(object):
         if not black_list:
             black_list = []
 
-        return filter(lambda lineup_dict: is_lineup_valid(lineup_dict, white_list, black_list), self.lineups.lineups())
+        if not lineups_list:
+            lineups_list = self.lineups.lineups()
+        return [lineup_dict for lineup_dict in lineups_list if
+                utilsScripts.is_lineup_valid(lineup_dict, white_list, black_list)]
 
-    def get_all_shooters_lineup_dicts(self, attempts_limit=20):
-        if not self.players_objects_list:
-            self.initialize_players_objects()
+    def get_all_shooters_lineup_dicts(self, attempts_limit=50):
+        """
 
-        only_non_shooters_player_objects = [player_object for player_object in self.players_objects_list
-                                            if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)]
-        all_shooters_lineup_dicts = self.get_filtered_lineup_dicts(black_list=only_non_shooters_player_objects)
+        :param attempts_limit:
+        :type attempts_limit: int
+        :return:
+        :rtype: list[dict]
+        """
+        non_shooter_player_objects = [player_object for player_object in self.current_players_objects
+                                      if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)]
+        all_shooters_lineup_dicts = self.get_filtered_lineup_dicts(black_list=non_shooter_player_objects)
         return all_shooters_lineup_dicts
+
+    def get_all_time_game_objects(self, initialize_stat_classes=False):
+        """
+
+        :param initialize_stat_classes: Whether or not to initialize the stat classes for the game objects
+        :type initialize_stat_classes: bool
+        :return:
+        :rtype: list[NBAGamePlayer]
+        """
+        player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
+        player_all_time_game_objects = [gameScripts.NBAGameTeam(game_log, initialize_stat_classes) for game_log in
+                                        player_all_time_game_logs]
+        return player_all_time_game_objects
 
 
 if __name__ == "__main__":
@@ -100,12 +245,7 @@ if __name__ == "__main__":
     # bobcats = NBATeam('bobcats')
     # only_shooters_bobcats_lineups = bobcats.get_all_shooters_lineup_dicts()
     # bobcats_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_bobcats_lineups)
-    my_season = 2015
-    league_dict = {}
-    for team_name, team_id in teams_id_dict.items():
-        team_object = NBATeam(team_id)
-        only_shooters_team_lineups = team_object.get_all_shooters_lineup_dicts()
-        team_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_team_lineups)
-        league_dict[team_name] = (only_shooters_team_lineups, team_all_shooters_advanced_stats)
-    with open(nba_teams_all_shooters_lineups_dicts_path_regex.format(season=my_season), 'wb') as file1:
-        pickle.dump(league_dict, file1)
+    my_season = '2015-16'
+    warriors = NBATeam('warriors', season='2015-16')
+    all_time_per_game_stats = warriors.get_all_time_per_game_stats()
+    print(all_time_per_game_stats)
