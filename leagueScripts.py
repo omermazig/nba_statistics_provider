@@ -112,6 +112,7 @@ class NBALeague(object):
         self.season = season
         self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         self.team_objects_list = []
+        """:type : list[teamScripts.NBATeam]"""
         self._players_not_on_team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -230,7 +231,7 @@ class NBALeague(object):
         :rtype: NBATeam
         """
         filtered_team_objects_list = [team_object for team_object in self.team_objects_list if
-                                      team_name in team_object.team_name]
+                                      team_name in team_object.name]
         filtered_team_objects_list_length = len(filtered_team_objects_list)
         if filtered_team_objects_list_length == 0:
             raise NoSuchTeam('There was no team matching the given name')
@@ -264,7 +265,7 @@ class NBALeague(object):
         """
         league_all_shooters_lineups_dicts = {}
         teams_all_shooters_lineup_dicts = [
-            (team_object.team_id, team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit)) for
+            (team_object.id, team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit)) for
             team_object in self.team_objects_list]
         for team_id, team_all_shooters_lineups_dicts in teams_all_shooters_lineup_dicts:
             team_name = teamScripts.teams_name_dict[team_id]

@@ -140,7 +140,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :rtype: str
         """
         player_stat_page_regex = "http://stats.nba.com/team/#!/{id}/stats/"
-        return player_stat_page_regex.format(player_id=self.id)
+        return player_stat_page_regex.format(id=self.id)
 
     @cached_property
     def current_players_objects(self):

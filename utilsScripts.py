@@ -372,7 +372,7 @@ def _get_list_of_players_ids_from_players_object_list(players_object_list):
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
-    return map(lambda player_object: player_object.player_id, players_object_list)
+    return map(lambda player_object: player_object.id, players_object_list)
 
 
 def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, check_all_players):

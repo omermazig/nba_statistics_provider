@@ -259,8 +259,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: str
         """
-        player_stat_page_regex = "http://stats.nba.com/player/#!/{player_id}/stats/"
-        return player_stat_page_regex.format(player_id=self.id)
+        player_stat_page_regex = "http://stats.nba.com/player/#!/{id}/stats/"
+        return player_stat_page_regex.format(id=self.id)
 
     def is_three_point_shooter(self, attempts_limit=50):
         """
