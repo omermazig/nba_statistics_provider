@@ -262,36 +262,48 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         player_stat_page_regex = "http://stats.nba.com/player/#!/{id}/stats/"
         return player_stat_page_regex.format(id=self.id)
 
-    def is_three_point_shooter(self, attempts_limit=50):
+    def is_three_point_shooter(self, attempts_limit=50, only_recent_team=False):
         """
 
         :param attempts_limit: attempts_limit
         :type attempts_limit: int
+        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
+        :type only_recent_team: bool
         :return: Whether or not a player SHOT more threes this season then the attempts_limit
         :rtype : bool
         """
-        if not self.player_stats_dict:
-            return False
-        else:
+        stat_dict = utilsScripts.get_most_recent_stat_dict(
+            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+        if stat_dict:
             try:
-                return self.player_stats_dict['FG3A'] > attempts_limit
+                return stat_dict['FG3A'] > attempts_limit
             except IndexError:
                 return False
+        else:
+            return False
 
-    def is_player_over_fga_limit(self, limit=300):
+    def is_player_over_fga_limit(self, limit=300, only_recent_team=False):
         """
 
+        :param limit:
+        :type limit: int
+        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
+        :type only_recent_team: bool
         :return: Whether the player shot more the 200 field goal attempts this season or not
         :rtype: bool
         """
-        if self.player_stats_dict:
-            return self.player_stats_dict["FGA"] > limit
+        stat_dict = utilsScripts.get_most_recent_stat_dict(
+            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+        if stat_dict:
+            return stat_dict["FGA"] > limit
         else:
             return False
 
     def is_player_over_fga_outside_10_feet_limit(self, limit=200):
         """
 
+        :param limit:
+        :type limit: int
         :return: Whether the player shot more the 100 field goal attempts outside of 10 feet this season or not
         :rtype: bool
         """
@@ -313,25 +325,37 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             else:
                 return False
 
-    def is_player_over_assists_limit(self, limit=100):
+    def is_player_over_assists_limit(self, limit=100, only_recent_team=False):
         """
 
+        :param limit:
+        :type limit: int
+        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
+        :type only_recent_team: bool
         :return: Whether the player passed more the 50 assists this season or not
         :rtype: bool
         """
-        if self.player_stats_dict:
-            return self.player_stats_dict['AST'] > limit
+        stat_dict = utilsScripts.get_most_recent_stat_dict(
+            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+        if stat_dict:
+            return stat_dict['AST'] > limit
         else:
             return False
 
-    def is_player_over_minutes_limit(self, limit=800):
+    def is_player_over_minutes_limit(self, limit=800, only_recent_team=False):
         """
 
+        :param limit:
+        :type limit: int
+        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
+        :type only_recent_team: bool
         :return: Whether the player passed more the 50 assists this season or not
         :rtype: bool
         """
-        if self.player_stats_dict:
-            return self.player_stats_dict['MIN'] > limit
+        stat_dict = utilsScripts.get_most_recent_stat_dict(
+            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+        if stat_dict:
+            return stat_dict['MIN'] > limit
         else:
             return False
 

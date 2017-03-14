@@ -417,3 +417,21 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
         return True
     else:
         return False
+
+
+def get_most_recent_stat_dict(stat_dict_list):
+    """
+    Returns the TOTAL stat dict if the player played for only one team, and THE STAT DICT FOR THE LATEST TEAM if the
+    player played for more then one team.
+
+    :param stat_dict_list: List of all the stat dicts. Length could be 1 (one team) or 3+ (2+ team and TOTAL)
+    :type stat_dict_list: list[dict]
+    :return: The desired stat dict
+    :rtype: dict
+    """
+    if len(stat_dict_list) == 0:
+        return None
+    elif len(stat_dict_list) == 1:
+        return  stat_dict_list[0]
+    else:
+        return stat_dict_list[-2]

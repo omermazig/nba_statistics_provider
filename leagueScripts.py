@@ -301,14 +301,14 @@ class NBALeague(object):
 
     def get_players_sorted_by_team_net_rtg_on_off_court_diff(self):
         """
-        Sort all the players WITH MORE THEN 700 MINUTES this season, by how much better their team's net rating was
+        Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's net rating was
         when they were on the court (rather then not)
         :return:
         :rtype: list[(string, (float, float))]
         """
         print('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
-                                        my_player_object.is_player_over_minutes_limit()]
+                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
 
         print('Getting relevant data...')
         players_name_and_result = []
