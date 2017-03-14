@@ -191,7 +191,7 @@ class NBAStatObject(object):
             efg_on_contested_shots_outside_10_feet, number_of_contested_shots_outside_10_feet = \
                 self.get_effective_field_goal_percentage_on_contested_shots_outside_10_feet()
             if number_of_contested_shots_outside_10_feet == 0:
-                return 0, 0
+                return 0, 100
             diff_in_efg = efg_on_uncontested_shots_outside_10_feet - efg_on_contested_shots_outside_10_feet
             percentage_of_contested_shots = number_of_uncontested_shots_outside_10_feet / (
                 number_of_uncontested_shots_outside_10_feet + number_of_contested_shots_outside_10_feet)

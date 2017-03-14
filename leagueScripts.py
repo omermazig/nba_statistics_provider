@@ -289,7 +289,7 @@ class NBALeague(object):
             print('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 diff_in_teammates_efg_percentage = \
-                    my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots()
+                    my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots()
                 players_name_and_result.append((my_player_object.name,
                                                 diff_in_teammates_efg_percentage))
             except PlayerHasMoreThenOneTeam:
@@ -324,8 +324,8 @@ class NBALeague(object):
 
     def get_players_sorted_by_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet(self):
         """
-        Sort all the players WITH MORE THEN 200 FGA this season, by how much better their EFG% was on uncontested
-        shots than on contested shots.
+        Sort all the players WITH MORE THEN 200 OUTSIDE FGA this season, by how much better their EFG% was on
+        uncontested shots than on contested shots.
         :return:
         :rtype: list[(string, (float, float))]
         """
@@ -347,14 +347,14 @@ class NBALeague(object):
 
     def get_players_sorted_by_percentage_of_shots_outside_10_feet_that_were_uncontested(self):
         """
-        Sort all the players WITH MORE THEN 200 FGA this season, by how much better their team's net rating was
-        when they were on the court (rather then not)
+        Sort all the players WITH MORE THEN 100 OUTSIDE FGA this season, by the percentage of their outside shots which
+        were uncontested.
         :return:
         :rtype: list[(string, (float, float))]
         """
         print('Filtering out players with not enough shot attempts...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
-                                        my_player_object.is_player_over_fga_limit()]
+                                        my_player_object.is_player_over_fga_outside_10_feet_limit(limit=100)]
 
         print('Getting relevant data...')
         players_name_and_result = []

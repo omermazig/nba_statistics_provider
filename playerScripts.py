@@ -259,7 +259,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: str
         """
-        player_stat_page_regex = "http://stats.nba.com/player/#!/{id}/stats/"
+        player_stat_page_regex = "http://stats.nba.com/player/#!/{player_id}/stats/"
         return player_stat_page_regex.format(player_id=self.id)
 
     def is_three_point_shooter(self, attempts_limit=50):
@@ -514,7 +514,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                 teammates_fga_without_player_pass)
             return effective_field_goal_percent_without_a_pass, teammates_fga_without_player_pass
 
-    def get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
+    def get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots(self):
         """
 
         :return: tuple of:
@@ -586,7 +586,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: None
         """
         self.print_field_goal_percentage_in_a_given_condition(
-            self.get_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots,
+            self.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots,
             "- change in teammates %EFG after a pass from a player")
 
     def get_most_frequent_passer_to_player(self):
