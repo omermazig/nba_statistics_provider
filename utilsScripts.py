@@ -157,7 +157,7 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
         value = [i for i in value if i is not None]
         if not value:
             dict2[key] = None
-        if key in keys_to_discard:
+        if key in keys_to_discard or key.endswith('RANK'):  # Ranks averages are useless, so we discard them.
             # dict1.pop(key)
             pass
         elif key in keys_to_take_first:
@@ -432,6 +432,6 @@ def get_most_recent_stat_dict(stat_dict_list):
     if len(stat_dict_list) == 0:
         return None
     elif len(stat_dict_list) == 1:
-        return  stat_dict_list[0]
+        return stat_dict_list[0]
     else:
         return stat_dict_list[-2]
