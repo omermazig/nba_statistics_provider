@@ -117,7 +117,10 @@ class NBALeague(object):
         if initialize_stat_classes:
             self.initialize_stat_classes()
             print('Initializing league playtypes...')
-            self.playtype = PlayTypeLeagueAverage()
+            try:
+                self.playtype = PlayTypeLeagueAverage()
+            except Exception as e:
+                print("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
             for team_name, team_id in teamScripts.teams_id_dict.items():
