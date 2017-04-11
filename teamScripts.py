@@ -7,6 +7,7 @@ from cached_property import cached_property
 
 import goldsberry
 import playerScripts
+import leagueScripts
 import gameScripts
 import utilsScripts
 from goldsberry.apiparams import default_season
@@ -141,6 +142,15 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         """
         player_stat_page_regex = "http://stats.nba.com/team/#!/{id}/stats/"
         return player_stat_page_regex.format(id=self.id)
+
+    @cached_property
+    def current_league_object(self):
+        """
+
+        :return:A generated object for the team that the player is currently playing for
+        :rtype:teamScripts.NBATeam
+        """
+        return leagueScripts.NBALeague(season=self.season)
 
     @cached_property
     def current_players_objects(self):
