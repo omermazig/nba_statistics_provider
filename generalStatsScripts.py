@@ -299,3 +299,11 @@ class NBAStatObject(object):
             'National TV': utilsScripts.join_single_game_stats(all_time_national_tv_game_dicts, per_36=True),
             'Not National TV': utilsScripts.join_single_game_stats(all_time_not_national_tv_game_dicts,
                                                                    per_36=True)}
+
+    def get_num_of_offensive_possessions(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        return utilsScripts.get_num_of_possessions_from_stat_dict(self.stats_dict)
