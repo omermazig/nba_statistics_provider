@@ -443,8 +443,8 @@ class NBALeague(object):
         :rtype: float
         """
         sum1 = 0
-        for team_stat_dict in self.team_stats_classic.stats():
-            sum1 += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
+        for team_object in self.team_objects_list:
+            sum1 += team_object.get_num_of_offensive_possessions()
         return sum1
 
     def print_league_playtype_point_per_possession(self):
