@@ -1,11 +1,12 @@
 """
 NBAStatObject object and necessary imports functions and consts
 """
-import utilsScripts
-import goldsberry
-
 import webbrowser
 import abc
+from cached_property import cached_property
+
+import utilsScripts
+import goldsberry
 
 
 class NBAStatObject(object):
@@ -21,6 +22,16 @@ class NBAStatObject(object):
         """:type : str"""
         if initialize_stat_classes:
             self.initialize_stat_classes()
+        pass
+
+    @property
+    @abc.abstractmethod
+    def object_indicator(self):
+        """
+
+        :return:
+        :rtype: str
+        """
         pass
 
     @property
@@ -63,15 +74,25 @@ class NBAStatObject(object):
         """
         pass
 
-    @property
+    @cached_property
     @abc.abstractmethod
+    def stats_dict(self):
+        """
+
+        :return: The last year that the object existed
+        :rtype: int
+        """
+        pass
+
+    @property
     def stats_page_url(self):
         """
         Om NBA.COM
         :return:
         :rtype: str
         """
-        pass
+        player_stat_page_regex = "http://stats.nba.com/%s/#!/{id}/stats/" % self.object_indicator
+        return player_stat_page_regex.format(id=self.id)
 
     def __cmp__(self, other):
         """
@@ -97,6 +118,17 @@ class NBAStatObject(object):
         """:type : NbaDataProvider"""
         setattr(self, stat_class_name, stat_class)
 
+    def _initialize_stat_class_if_not_initialized(self, stat_class_name):
+        """
+        Checks whether a stat class is already initialized, and initializes it if not
+        :param stat_class_name: stat_class name to potentially initialize
+        :type stat_class_name: str
+        :return:
+        :rtype: None
+        """
+        if not hasattr(self, stat_class_name):
+            self._initialize_stat_class(stat_class_name)
+
     def initialize_stat_classes(self):
         """
         Initializing all of the classes in goldsberry_object with the id, and setting them under self
@@ -115,7 +147,7 @@ class NBAStatObject(object):
                 print("    Could not initialize %s - Maybe it wasn't instituted in %s" % (
                     stat_class_name, self.season))
 
-    def open_player_web_stat_page(self):
+    def open_web_stat_page(self):
         """
 
         :return:

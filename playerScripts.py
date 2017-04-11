@@ -63,7 +63,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         self.player_dict = self._get_player_dict(player_name_or_id, season)
         super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
-                                        goldsberry_object_name="player")
+                                        goldsberry_object_name=self.object_indicator)
         self.season = season
         """:type : str"""
 
@@ -71,16 +71,6 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             # Cache game objects. a is unused
             # noinspection PyUnusedLocal
             a = self.player_regular_season_game_objects
-
-    def __cmp__(self, other):
-        """
-        The compare between two NBATeam objects is to check whether they have the same team id And the same season
-        :param other:
-        :type other: self
-        :return:
-        :rtype: bool
-        """
-        return self.id == other.id and self.season == other.season
 
     @staticmethod
     def _get_player_dict(player_name_or_id, season):
@@ -114,6 +104,10 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             raise TooMuchPlayers('There were %s dicts for %s...' % (number_of_matching_player_dicts, player_name_or_id))
         else:
             return filtered_player_dicts_list[0]
+
+    @property
+    def object_indicator(self):
+        return "player"
 
     @property
     def name(self):
@@ -187,15 +181,14 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: list[dict]
         """
         print("Initializes all of %s stats dicts" % self.name)
-        if not hasattr(self, 'career_stats'):
-            self._initialize_stat_class('career_stats')
+        self._initialize_stat_class_if_not_initialized('career_stats')
         filtered_list_of_player_stats_dicts = [stats_dict for stats_dict in
                                                self.career_stats.seasons_regular() if
                                                stats_dict['SEASON_ID'] == self.season]
         return filtered_list_of_player_stats_dicts
 
     @property
-    def player_stats_dict(self):
+    def stats_dict(self):
         """
         NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams
         :return: A dict that represent the player's basic total stats for the given season
@@ -252,16 +245,6 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
 
-    @property
-    def stats_page_url(self):
-        """
-        Om NBA.COM
-        :return:
-        :rtype: str
-        """
-        player_stat_page_regex = "http://stats.nba.com/player/#!/{id}/stats/"
-        return player_stat_page_regex.format(id=self.id)
-
     def is_three_point_shooter(self, attempts_limit=50, only_recent_team=False):
         """
 
@@ -273,7 +256,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype : bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             try:
                 return stat_dict['FG3A'] > attempts_limit
@@ -293,7 +276,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict["FGA"] > limit
         else:
@@ -318,8 +301,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             except IndexError:
                 # If there is no dict for 'Less than 10 ft', that means all of the player's shots were outside 10 ft
                 percentage_of_outside_shots = 1
-            if self.player_stats_dict:
-                number_of_total_fga = self.player_stats_dict["FGA"]
+            if self.stats_dict:
+                number_of_total_fga = self.stats_dict["FGA"]
                 number_of_outside_shots = percentage_of_outside_shots * number_of_total_fga
                 return number_of_outside_shots > limit
             else:
@@ -336,7 +319,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict['AST'] > limit
         else:
@@ -353,7 +336,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.player_stats_dict
+            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict['MIN'] > limit
         else:
@@ -478,18 +461,18 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
 
-        if self.player_stats_dict:
-            player_fgm = self.player_stats_dict["FGM"]
-            player_fg3m = self.player_stats_dict["FG3M"]
-            player_fga = self.player_stats_dict["FGA"]
+        if self.stats_dict:
+            player_fgm = self.stats_dict["FGM"]
+            player_fg3m = self.stats_dict["FG3M"]
+            player_fga = self.stats_dict["FGA"]
         else:
             player_fgm = 0
             player_fg3m = 0
             player_fga = 0
 
-        teammates_fgm = self.current_team_object.team_stats_dict['FGM'] - player_fgm
-        teammates_fg3m = self.current_team_object.team_stats_dict['FG3M'] - player_fg3m
-        teammates_fga = self.current_team_object.team_stats_dict['FGA'] - player_fga
+        teammates_fgm = self.current_team_object.stats_dict['FGM'] - player_fgm
+        teammates_fg3m = self.current_team_object.stats_dict['FG3M'] - player_fg3m
+        teammates_fga = self.current_team_object.stats_dict['FGA'] - player_fga
         if teammates_fga == 0:
             return 0, 0, 0
         else:

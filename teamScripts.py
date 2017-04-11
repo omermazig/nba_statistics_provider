@@ -38,7 +38,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         """
         self.team_name_or_id = team_name_or_id
         super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
-                                      goldsberry_object_name="team")
+                                      goldsberry_object_name=self.object_indicator)
         print('Initialize %s team object...' % self.name)
         self.season = season
         if initialize_game_objects:
@@ -46,19 +46,13 @@ class NBATeam(generalStatsScripts.NBAStatObject):
             # noinspection PyUnusedLocal
             a = self.team_regular_season_game_objects
 
-    def __cmp__(self, other):
-        """
-        The compare between two NBATeam objects is to check whether they have the same team id And the same season
-        :param other:
-        :type other: self
-        :return:
-        :rtype: bool
-        """
-        return self.id == other.id and self.season == other.season
-
     def __del__(self):
         for player_object in self.current_players_objects:
             del player_object
+
+    @property
+    def object_indicator(self):
+        return "team"
 
     @property
     def name(self):
@@ -89,7 +83,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
             raise Exception('Constructor only receives string or integer')
 
     @cached_property
-    def team_stats_dict(self):
+    def stats_dict(self):
         """
 
         :return:
@@ -125,23 +119,13 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         """
 
         :return:
-        :rtype: list[NBAGameTeam]
+        :rtype: list[gameScripts.NBAGameTeam]
         """
         regular_season_game_objects = []
         for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
             print('Initializing game number %s' % (game_number + 1))
             regular_season_game_objects.append(gameScripts.NBAGameTeam(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
-
-    @property
-    def stats_page_url(self):
-        """
-        Om NBA.COM
-        :return:
-        :rtype: str
-        """
-        player_stat_page_regex = "http://stats.nba.com/team/#!/{id}/stats/"
-        return player_stat_page_regex.format(id=self.id)
 
     @cached_property
     def current_league_object(self):
@@ -160,17 +144,6 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :rtype: list[playerScripts.NBAPlayer]
         """
         return self._generate_current_players_objects(initialize_stat_classes=False)
-
-    def _initialize_stat_class_if_not_initialized(self, stat_class_name):
-        """
-        Checks whether a stat class is already initialized, and initializes it if not
-        :param stat_class_name: stat_class name to potentially initialize
-        :type stat_class_name: str
-        :return:
-        :rtype: None
-        """
-        if not hasattr(self, stat_class_name):
-            self._initialize_stat_class(stat_class_name)
 
     def _generate_current_players_objects(self, initialize_stat_classes):
         """
