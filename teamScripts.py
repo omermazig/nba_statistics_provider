@@ -89,7 +89,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :return:
         :rtype:
         """
-        self._initialize_stat_class_if_not_initialized('season_totals')
+        self._initialize_stat_class_if_not_initialized('season_stats')
         return self.season_stats.overall()[0]
 
     @property
@@ -216,6 +216,10 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         player_all_time_game_objects = [gameScripts.NBAGameTeam(game_log, initialize_stat_classes) for game_log in
                                         player_all_time_game_logs]
         return player_all_time_game_objects
+
+    def get_pace(self):
+        with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Advanced'):
+            return self.season_stats.overall()[0]['PACE']
 
 
 if __name__ == "__main__":
