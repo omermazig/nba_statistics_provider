@@ -397,6 +397,17 @@ def get_num_of_possessions_from_stat_dict(stat_dict):
     return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + 0.44*stat_dict['FTA']
 
 
+def get_pace_from_stat_dict(stat_dict):
+    """
+
+    :param stat_dict: A stat dict. Can be for a player, a team or a game (and etc)
+    :type stat_dict: dict
+    :return: The number of possessions in the event which the dict represents per 48 minutes
+    :rtype: float
+    """
+    return get_num_of_possessions_from_stat_dict(stat_dict) / stat_dict['MIN']
+
+
 def _get_list_of_players_ids_from_lineup_dict(lineup_dict_to_convert):
     """
     Name
