@@ -393,14 +393,48 @@ class NBALeague(object):
         """
         return utilsScripts.get_stat_average_from_list(self.team_stats_classic.stats(), stat_key)
 
-    def get_league_vop(self):
+    def get_league_ppp(self):
+        """
+
+        :return: The league average points per possession. The amount of points an average offensive possession rewards
+        the offensive team.
+        :rtype: float
+        """
+        return self.get_league_classic_stat_sum('PTS') / \
+               self.get_league_num_of_possessions()
+
+    def _get_league_defensive_reb_percentage(self):
+        """
+
+        :return: The league's percentage of defensive rebounds out of all rebounds
+        :rtype: float
+        """
+        d_reb = self.get_league_classic_stat_sum('DREB')
+        reb = self.get_league_classic_stat_sum('REB')
+        return d_reb/reb
+
+    def _get_league_assist_factor(self):
         """
 
         :return:
         :rtype: float
         """
-        return self.get_league_classic_stat_sum('PTS') / \
-               self.get_league_num_of_possessions()
+        assists = self.get_league_classic_stat_sum('AST')
+        field_goals_made = self.get_league_classic_stat_sum('FGM')
+        free_throws_made = self.get_league_classic_stat_sum('FTM')
+        return (2/3) - (0.5*(assists / field_goals_made)) / (2*(field_goals_made / free_throws_made))
+
+    def _get_league_foul_factor(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        free_throws_made = self.get_league_classic_stat_sum('FTM')
+        free_throws_attempted = self.get_league_classic_stat_sum('FTA')
+        personal_fouls = self.get_league_classic_stat_sum('PF')
+        ppp = self.get_league_ppp()
+        return (free_throws_made/personal_fouls) - (0.44 * (free_throws_attempted/personal_fouls) * ppp)
 
     def get_league_num_of_possessions(self):
         """
