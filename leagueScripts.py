@@ -134,7 +134,7 @@ class NBALeague(object):
                         player_object.initialize_stat_classes()
                         # Cache player_stats_dict objects. a is unused
                         # noinspection PyUnusedLocal
-                        a = player_object.player_stats_dict
+                        a = player_object.stats_dict
                         if initialize_game_objects:
                             print('Initializing players game objects for %s object..' % player_object.player_name)
                             # Cache game objects. a is unused
@@ -199,7 +199,7 @@ class NBALeague(object):
         for player_object in self._players_not_on_team_objects_list:
             # Cache player_stats_dict objects. a is unused
             # noinspection PyUnusedLocal
-            a = player_object.player_stats_dict
+            a = player_object.stats_dict
 
     def get_player_object_by_name(self, player_name):
         """
