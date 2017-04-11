@@ -353,6 +353,50 @@ def get_effective_field_goal_percentage_from_multiple_shot_charts(shot_charts):
                                                       field_goal_attempts), field_goal_attempts
 
 
+def get_stat_summation_from_list(stat_dicts, stat_key):
+    """
+
+    :param stat_dicts: A list of all the stat dicts to sum up
+    :type stat_dicts: list[dict]
+    :param stat_key: The stat to check
+    :type stat_key: str
+    :return: The sum of all 30 teams value for the given stat key
+    :rtype: float
+    """
+    sum1 = 0
+    try:
+        for team_stat_object in stat_dicts:
+            sum1 += team_stat_object[stat_key]
+
+        return sum1
+    except KeyError:
+        raise KeyError('Key "%s" does not appear in stat dicts' % stat_key)
+
+
+def get_stat_average_from_list(stat_dicts, stat_key):
+    """
+
+    :param stat_dicts: A list of all the stat dicts to sum up for average
+    :type stat_dicts: list[dict]
+    :param stat_key: The stat to check
+    :type stat_key: str
+    :return: The average value of all 30 teams for the given stat key
+    :rtype: float
+    """
+    return get_stat_summation_from_list(stat_dicts, stat_key) / 30.0
+
+
+def get_num_of_possessions_from_stat_dict(stat_dict):
+    """
+
+    :param stat_dict: A stat dict. Can be for a player, a team or a game (and etc)
+    :type stat_dict: dict
+    :return: The number of possessions in the event which the dict represents
+    :rtype: float
+    """
+    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + 0.44*stat_dict['FTA']
+
+
 def _get_list_of_players_ids_from_lineup_dict(lineup_dict_to_convert):
     """
     Name

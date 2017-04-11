@@ -373,6 +373,46 @@ class NBALeague(object):
         players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
         return players_name_and_result
 
+    def get_league_classic_stat_sum(self, stat_key):
+        """
+
+        :param stat_key: The stat to check
+        :type stat_key: str
+        :return: The sum of all 30 teams value for the given stat key
+        :rtype: float
+        """
+        return utilsScripts.get_stat_summation_from_list(self.team_stats_classic.stats(), stat_key)
+
+    def get_league_classic_stat_average(self, stat_key):
+        """
+
+        :param stat_key: The stat to check
+        :type stat_key: str
+        :return: The average value of all 30 teams for the given stat key
+        :rtype: float
+        """
+        return utilsScripts.get_stat_average_from_list(self.team_stats_classic.stats(), stat_key)
+
+    def get_league_vop(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        return self.get_league_classic_stat_sum('PTS') / \
+               self.get_league_num_of_possessions()
+
+    def get_league_num_of_possessions(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        sum1 = 0
+        for team_stat_dict in self.team_stats_classic.stats():
+            sum1 += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
+        return sum1
+
     def print_league_playtype_point_per_possession(self):
         """
 
