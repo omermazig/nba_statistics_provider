@@ -89,10 +89,8 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :return:
         :rtype:
         """
-        self._initialize_stat_class_if_not_initialized('year_by_year')
-        team_stats_dict = [stats_dict for stats_dict in self.year_by_year.team_stats() if
-                           stats_dict['YEAR'] == self.season]
-        return team_stats_dict[0]
+        self._initialize_stat_class_if_not_initialized('season_totals')
+        return self.season_stats.overall()[0]
 
     @property
     def first_year(self):
@@ -132,7 +130,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         """
 
         :return:A generated object for the team that the player is currently playing for
-        :rtype:teamScripts.NBATeam
+        :rtype: leagueScripts.NBALeague
         """
         return leagueScripts.NBALeague(season=self.season)
 
