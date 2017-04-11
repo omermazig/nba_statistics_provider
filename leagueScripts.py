@@ -16,7 +16,7 @@ import playerScripts
 import utilsScripts
 import teamScripts
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam, \
-    PlayerHasNoTeam
+    PlayerHasNoTeam, TeamObjectIsNotSet
 import goldsberry
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
@@ -127,6 +127,7 @@ class NBALeague(object):
                 time.sleep(0.1)
                 team_object = teamScripts.NBATeam(team_id, season=self.season,
                                                   initialize_game_objects=initialize_game_objects)
+                team_object.current_league_object = self
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
                         # TODO - Why does pycharm not recognize player_object as playerScripts.NBAPlayer object?
@@ -403,7 +404,7 @@ class NBALeague(object):
         return self.get_league_classic_stat_sum('PTS') / \
                self.get_league_num_of_possessions()
 
-    def _get_league_defensive_reb_percentage(self):
+    def get_league_defensive_reb_percentage(self):
         """
 
         :return: The league's percentage of defensive rebounds out of all rebounds
@@ -413,7 +414,7 @@ class NBALeague(object):
         reb = self.get_league_classic_stat_sum('REB')
         return d_reb/reb
 
-    def _get_league_assist_factor(self):
+    def get_league_assist_factor(self):
         """
 
         :return:
@@ -424,7 +425,7 @@ class NBALeague(object):
         free_throws_made = self.get_league_classic_stat_sum('FTM')
         return (2/3) - (0.5*(assists / field_goals_made)) / (2*(field_goals_made / free_throws_made))
 
-    def _get_league_foul_factor(self):
+    def get_league_foul_factor(self):
         """
 
         :return:
@@ -442,10 +443,22 @@ class NBALeague(object):
         :return:
         :rtype: float
         """
-        sum1 = 0
-        for team_object in self.team_objects_list:
-            sum1 += team_object.get_num_of_offensive_possessions()
-        return sum1
+        offensive_possessions = 0
+        for team_stat_dict in self.team_stats_classic.stats():
+            offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
+        return offensive_possessions
+
+    def get_league_average_pace(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        offensive_possessions = 0
+        for team_stat_dict in self.team_stats_classic.stats():
+            offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
+        minutes_played = self.get_league_classic_stat_sum('MIN')
+        return (offensive_possessions/minutes_played)*48
 
     def print_league_playtype_point_per_possession(self):
         """

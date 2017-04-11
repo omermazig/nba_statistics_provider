@@ -221,6 +221,22 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Advanced'):
             return self.season_stats.overall()[0]['PACE']
 
+    def get_pace_adjustment(self):
+        """
+
+        :return: League's pace divided by team's pace. Used for PER calculation
+        :rtype: float
+        """
+        return self.current_league_object.get_league_average_pace()/self.get_pace()
+
+    def get_assist_percentage(self):
+        """
+
+        :return: The portion of the team's field goals wich was assisted
+        :rtype: float
+        """
+        return self.stats_dict['AST']/self.stats_dict['FGM']
+
 
 if __name__ == "__main__":
     # suns = NBATeam('suns')

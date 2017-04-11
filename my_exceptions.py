@@ -77,7 +77,7 @@ class TeamObjectIsNotSet(Exception):
         self.message = message
 
 
-class PlayersObjectsAreNotSet(Exception):
+class PlayerObjectAreNotSet(Exception):
     """
     PlayersObjectsAreNotSet
     """

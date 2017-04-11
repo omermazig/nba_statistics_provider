@@ -541,6 +541,60 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player, \
                    teammates_number_of_shots_after_pass_from_player
 
+    # noinspection PyPep8Naming
+    def _get_uPER(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        #TODO - Check the math
+        MIN = self.stats_dict['MIN']
+        FG3M = self.stats_dict['FG3M']
+        AST = self.stats_dict['AST']
+        FGM = self.stats_dict['FGM']
+        FTM = self.stats_dict['FTM']
+        TOV = self.stats_dict['TOV']
+        FGA = self.stats_dict['FGA']
+        FTA = self.stats_dict['FTA']
+        REB = self.stats_dict['REB']
+        OREB = self.stats_dict['OREB']
+        STL = self.stats_dict['STL']
+        BLK = self.stats_dict['BLK']
+        PF = self.stats_dict['PF']
+
+        team_ast_per = self.current_team_object.get_assist_percentage()
+
+        league_ast_factor = self.current_team_object.current_league_object.get_league_assist_factor()
+        league_ppp = self.current_team_object.current_league_object.get_league_ppp()
+        league_dreb = self.current_team_object.current_league_object.get_league_defensive_reb_percentage()
+        league_foul_factor = self.current_team_object.current_league_object.get_league_foul_factor()
+
+        uPER = (1 / MIN)*(FG3M
+                             + (2 / 3) * AST
+                             + (2 - league_ast_factor * team_ast_per) * FGM
+                             + (FTM * 0.5 * (1 + (1 - team_ast_per) + (2 / 3) * team_ast_per))
+                             - league_ppp * TOV
+                             - league_ppp * league_dreb * (FGA - FGM)
+                             - league_ppp * 0.44 * (0.44 + (0.56 * league_dreb)) * (FTA - FTM)
+                             + league_ppp * (1 - league_dreb) * (REB - OREB)
+                             + league_ppp * league_dreb * OREB
+                             + league_ppp * STL
+                             + league_ppp * league_dreb * BLK
+                             - PF * league_foul_factor)
+
+        return uPER
+
+    # noinspection PyPep8Naming
+    def get_aPER(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        #TODO - Check the math
+        return self.current_team_object.get_pace_adjustment()*self._get_uPER()
+
     def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
                                                          is_percentage_diff=False):
         """
