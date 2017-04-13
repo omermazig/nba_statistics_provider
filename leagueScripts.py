@@ -128,6 +128,9 @@ class NBALeague(object):
                 team_object = teamScripts.NBATeam(team_id, season=self.season,
                                                   initialize_game_objects=initialize_game_objects)
                 team_object.current_league_object = self
+                # Cache player_stats_dict objects. a is unused
+                # noinspection PyUnusedLocal
+                a = team_object.stats_dict
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
                         # TODO - Why does pycharm not recognize player_object as playerScripts.NBAPlayer object?
@@ -152,6 +155,18 @@ class NBALeague(object):
             del player_with_no_team_object
 
     @property
+    def players_on_teams_objects_list(self):
+        """
+
+        :return: A list if player objects for all the players which are on teams
+        :rtype: list[playerScripts.NBAPlayer]
+        """
+        players_on_teams_objects_list = []
+        for team_object in self.team_objects_list:
+            players_on_teams_objects_list += team_object.current_players_objects
+        return players_on_teams_objects_list
+
+    @property
     def player_objects_list(self):
         """
         A list of generated player objects for all of the players for the given season.
@@ -161,11 +176,7 @@ class NBALeague(object):
         :return:
         :rtype:list[playerScripts.NBAPlayer]
         """
-        players_on_teams_objects_list = []
-        for team_object in self.team_objects_list:
-            players_on_teams_objects_list += team_object.current_players_objects
-        players_on_teams_objects_list += self._players_not_on_team_objects_list
-        return players_on_teams_objects_list
+        return self.players_on_teams_objects_list + self._players_not_on_team_objects_list
 
     def initialize_stat_classes(self):
         """
@@ -372,6 +383,37 @@ class NBALeague(object):
             players_name_and_result.append((my_player_object.name, diff_in_teammates_efg_percentage))
         print('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
+        return players_name_and_result
+
+    # noinspection PyPep8Naming
+    def get_players_sorted_by_per(self):
+        """
+
+        :return:
+        :rtype: list[(string, float)]
+        """
+        print('Getting aPER data...')
+        players_name_and_result = []
+        aPer_sum = 0
+        # Getting qualifying players for stat - players with a team that are on pace to play at least 500 minutes
+        qualifying_players = [p for p in self.players_on_teams_objects_list if p.stats_dict and
+                              p.is_player_over_projected_minutes_limit(minutes_limit=500)]
+        num_of_players_on_teams = len(qualifying_players)
+
+        for i, my_player_object in enumerate(qualifying_players, start=1):
+            print('Player %s/%s' % (i, num_of_players_on_teams))
+            aPER = my_player_object.get_aPER()
+            aPer_sum += aPER
+            players_name_and_result.append((my_player_object.name, aPER))
+
+        print('Normalizing aPER to PER on list...')
+        aPer_average = aPer_sum/num_of_players_on_teams
+        for i in range(len(players_name_and_result)):
+            per = players_name_and_result[i][1] * (15/aPer_average)
+            players_name_and_result[i] = (players_name_and_result[i][0], per)
+
+        print('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1], reverse=True)
         return players_name_and_result
 
     def get_league_classic_stat_sum(self, stat_key):
