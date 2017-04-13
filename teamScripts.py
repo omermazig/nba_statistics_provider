@@ -90,7 +90,8 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :rtype:
         """
         self._initialize_stat_class_if_not_initialized('season_stats')
-        return self.season_stats.overall()[0]
+        with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Base'):
+            return self.season_stats.overall()[0]
 
     @property
     def first_year(self):
@@ -218,8 +219,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         return player_all_time_game_objects
 
     def get_pace(self):
-        with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Advanced'):
-            return self.season_stats.overall()[0]['PACE']
+        return self.season_stats.overall()[0]['PACE']
 
     def get_pace_adjustment(self):
         """
@@ -235,7 +235,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :return: The portion of the team's field goals wich was assisted
         :rtype: float
         """
-        return self.stats_dict['AST']/self.stats_dict['FGM']
+        return self.season_stats.overall()[0]['AST_PCT']
 
 
 if __name__ == "__main__":
