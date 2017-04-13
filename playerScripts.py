@@ -131,8 +131,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     def current_team_object(self):
         """
 
-        :return:A generated object for the team that the player is currently playing for
-        :rtype:teamScripts.NBATeam
+        :return: A generated object for the team that the player is currently playing for
+        :rtype: teamScripts.NBATeam
         """
         if self.team_id:
             return teamScripts.NBATeam(self.team_id, season=self.season)
@@ -342,6 +342,31 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return False
 
+    def is_player_over_projected_minutes_limit(self, minutes_limit=1000):
+        """
+        Returns whether or not the player is projected to pass a given minutes limit.
+
+        :param minutes_limit: minutes limit (TOT)
+        :type minutes_limit: int
+        :return:
+        :rtype: bool
+        """
+        return self.get_player_projected_minutes_played() > minutes_limit
+
+    def get_player_projected_minutes_played(self):
+        """
+        Based on how many minutes a player already played and how many games his team has left, returns a projection of
+        how many minutes the player will finish the season with.
+
+        :return: A projection of how many minutes the player will finish the season with.
+        :rtype: float
+        """
+        team_minutes_played = self.current_team_object.stats_dict['MIN']
+        team_games_played = self.current_team_object.stats_dict['GP']
+        team_games_remaining = 82 - team_games_played
+        player_minutes_played = self.stats_dict['MIN']
+        return player_minutes_played + (player_minutes_played/team_minutes_played)*team_games_remaining
+
     # BLOCKED BY NBA - No longer provide defender distance per shot
     # def _get_average_defender_distance_depending_on_shot_result(self, shot_result):
     #     total_shots_with_result = 0
@@ -548,7 +573,6 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: float
         """
-        #TODO - Check the math
         MIN = self.stats_dict['MIN']
         FG3M = self.stats_dict['FG3M']
         AST = self.stats_dict['AST']
@@ -563,24 +587,24 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         BLK = self.stats_dict['BLK']
         PF = self.stats_dict['PF']
 
-        team_ast_per = self.current_team_object.get_assist_percentage()
+        team_ast_percentage = self.current_team_object.get_assist_percentage()
 
         league_ast_factor = self.current_team_object.current_league_object.get_league_assist_factor()
         league_ppp = self.current_team_object.current_league_object.get_league_ppp()
-        league_dreb = self.current_team_object.current_league_object.get_league_defensive_reb_percentage()
+        league_dreb_percentage = self.current_team_object.current_league_object.get_league_defensive_reb_percentage()
         league_foul_factor = self.current_team_object.current_league_object.get_league_foul_factor()
 
         uPER = (1 / MIN)*(FG3M
                              + (2 / 3) * AST
-                             + (2 - league_ast_factor * team_ast_per) * FGM
-                             + (FTM * 0.5 * (1 + (1 - team_ast_per) + (2 / 3) * team_ast_per))
+                             + (2 - league_ast_factor * team_ast_percentage) * FGM
+                             + (FTM * 0.5 * (1 + (1 - team_ast_percentage) + (2 / 3) * team_ast_percentage))
                              - league_ppp * TOV
-                             - league_ppp * league_dreb * (FGA - FGM)
-                             - league_ppp * 0.44 * (0.44 + (0.56 * league_dreb)) * (FTA - FTM)
-                             + league_ppp * (1 - league_dreb) * (REB - OREB)
-                             + league_ppp * league_dreb * OREB
+                             - league_ppp * league_dreb_percentage * (FGA - FGM)
+                             - league_ppp * 0.44 * (0.44 + (0.56 * league_dreb_percentage)) * (FTA - FTM)
+                             + league_ppp * (1 - league_dreb_percentage) * (REB - OREB)
+                             + league_ppp * league_dreb_percentage * OREB
                              + league_ppp * STL
-                             + league_ppp * league_dreb * BLK
+                             + league_ppp * league_dreb_percentage * BLK
                              - PF * league_foul_factor)
 
         return uPER
@@ -592,8 +616,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: float
         """
-        #TODO - Check the math
-        return self.current_team_object.get_pace_adjustment()*self._get_uPER()
+        return self._get_uPER()*self.current_team_object.get_pace_adjustment()
 
     def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
                                                          is_percentage_diff=False):
