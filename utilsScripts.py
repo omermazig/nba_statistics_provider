@@ -394,7 +394,7 @@ def get_num_of_possessions_from_stat_dict(stat_dict):
     :return: The number of possessions in the event which the dict represents
     :rtype: float
     """
-    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + 0.44*stat_dict['FTA']
+    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + (0.44*stat_dict['FTA'])
 
 
 def get_pace_from_stat_dict(stat_dict):
