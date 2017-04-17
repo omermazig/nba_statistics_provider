@@ -16,7 +16,7 @@ import playerScripts
 import utilsScripts
 import teamScripts
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam, \
-    PlayerHasNoTeam, TeamObjectIsNotSet
+    PlayerHasNoTeam
 import goldsberry
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
