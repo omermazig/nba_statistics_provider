@@ -713,6 +713,20 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                         player_all_time_game_logs]
         return player_all_time_game_objects
 
+    def get_over_minutes_limit_games_per_36_stats_compared_to_other_games(self, minutes_limit=30):
+        """
+
+        :return:
+        :rtype: dict[str, dict]
+        """
+        over_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] >= 30]
+        under_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] < 30]
+        return {
+            ('Over %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(over_limit_game_dicts,
+                                                                                     per_36=True),
+            ('Under %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(under_limit_game_dicts,
+                                                                                      per_36=True)}
+
 
 if __name__ == "__main__":
     players_names_list = [

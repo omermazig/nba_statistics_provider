@@ -283,6 +283,7 @@ class NBAStatObject(object):
                 all_time_not_national_tv_game_objects.append(game_object)
         return all_time_national_tv_game_objects, all_time_not_national_tv_game_objects
 
+    # TODO - Generalize the comparision code to a separate function
     def get_national_tv_all_time_per_36_stats_compared_to_other_games(self):
         """
 
