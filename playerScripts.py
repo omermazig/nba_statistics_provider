@@ -589,10 +589,10 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         efg_on_uncontested = self.get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_after_makes,
-                                                                      "%FG after a make")
+                                                                      "%EFG after a make")
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_after_misses,
-                                                                      "%FG after a miss")
+                                                                      "%EFG after a miss")
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_on_contested,
                                                                       "%EFG on contested shot outside 10 feet")
