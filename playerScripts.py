@@ -365,7 +365,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         team_games_played = self.current_team_object.stats_dict['GP']
         team_games_remaining = 82 - team_games_played
         player_minutes_played = self.stats_dict['MIN']
-        return player_minutes_played + (player_minutes_played/team_minutes_played)*team_games_remaining
+        return player_minutes_played + (player_minutes_played / team_minutes_played) * team_games_remaining
 
     # BLOCKED BY NBA - No longer provide defender distance per shot
     # def _get_average_defender_distance_depending_on_shot_result(self, shot_result):
@@ -576,32 +576,6 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         return utilsScripts.get_aPER_from_stat_dict(self.stats_dict, self.current_team_object)
 
-    def print_field_goal_percentage_in_a_given_condition(self, condition_func, condition_string,
-                                                         is_percentage_diff=False):
-        """
-
-        :param condition_func: The function that returns the printed results.
-        Have to return a tuple of two floats - The resulted percentage and the number of shots
-        :type condition_func: lambda
-        :param condition_string: The string that will declare what the numbers meaning is
-        :type condition_string: str
-        :param is_percentage_diff: Whether the result is an actual percentage or a diff between two percentage values
-        :type is_percentage_diff: bool
-        :return:
-        :rtype: None
-        """
-        function_result, number_of_shots = condition_func()
-        if type(function_result) is float and -1 <= function_result <= 1:
-            if is_percentage_diff:
-                function_result = "{0:+.2f}%".format(function_result * 100)
-            else:
-                function_result = "{0:.2f}%".format(function_result * 100)
-        print("{player_name} {condition} - {function_result} - on {number_of_shots} shots".format(
-            player_name=self.name,
-            condition=condition_string,
-            function_result=function_result,
-            number_of_shots=number_of_shots))
-
     def print_shooting_info(self):
         """
         Printing all the main relevant info on a player's shooting
@@ -609,16 +583,22 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: None
         """
 
-        self.print_field_goal_percentage_in_a_given_condition(self.get_effective_field_goal_percentage_after_makes,
-                                                              "%FG after a make")
-        self.print_field_goal_percentage_in_a_given_condition(self.get_effective_field_goal_percentage_after_misses,
-                                                              "%FG after a miss")
-        self.print_field_goal_percentage_in_a_given_condition(
-            self.get_effective_field_goal_percentage_on_contested_shots_outside_10_feet,
-            "%EFG on contested shot outside 10 feet")
-        self.print_field_goal_percentage_in_a_given_condition(
-            self.get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet,
-            "%EFG on uncontested shot outside 10 feet")
+        efg_after_makes = self.get_effective_field_goal_percentage_after_makes
+        efg_after_misses = self.get_effective_field_goal_percentage_after_misses
+        efg_on_contested = self.get_effective_field_goal_percentage_on_contested_shots_outside_10_feet
+        efg_on_uncontested = self.get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_after_makes,
+                                                                      "%FG after a make")
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_after_misses,
+                                                                      "%FG after a miss")
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_on_contested,
+                                                                      "%EFG on contested shot outside 10 feet")
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_on_uncontested,
+                                                                      "%EFG on uncontested shot outside 10 feet")
         print('')
 
     def print_passing_info(self):
@@ -627,9 +607,11 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: None
         """
-        self.print_field_goal_percentage_in_a_given_condition(
-            self.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots,
-            "- change in teammates %EFG after a pass from a player")
+        diff_in_efg = self.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      diff_in_efg,
+                                                                      "- change in teammates %EFG "
+                                                                      "after a pass from a player")
 
     def get_most_frequent_passer_to_player(self):
         """

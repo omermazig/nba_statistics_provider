@@ -540,3 +540,32 @@ def get_aPER_from_stat_dict(stat_dict, team_object):
                         - PF * league_foul_factor)
 
     return uPER * pace_adjustment
+
+
+def print_field_goal_percentage_in_a_given_condition(name, condition_func, condition_string,
+                                                     is_percentage_diff=False):
+    """
+
+    :param name: Name of the player/team
+    :type name: str
+    :param condition_func: The function that returns the printed results.
+    Have to return a tuple of two floats - The resulted percentage and the number of shots
+    :type condition_func: lambda
+    :param condition_string: The string that will declare what the numbers meaning is
+    :type condition_string: str
+    :param is_percentage_diff: Whether the result is an actual percentage or a diff between two percentage values
+    :type is_percentage_diff: bool
+    :return:
+    :rtype: None
+    """
+    function_result, number_of_shots = condition_func()
+    if type(function_result) is float and -1 <= function_result <= 1:
+        if is_percentage_diff:
+            function_result = "{0:+.2f}%".format(function_result * 100)
+        else:
+            function_result = "{0:.2f}%".format(function_result * 100)
+    print("{player_name} {condition} - {function_result} - on {number_of_shots} shots".format(
+        player_name=name,
+        condition=condition_string,
+        function_result=function_result,
+        number_of_shots=number_of_shots))
