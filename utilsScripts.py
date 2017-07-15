@@ -490,3 +490,53 @@ def get_most_recent_stat_dict(stat_dict_list):
         return stat_dict_list[0]
     else:
         return stat_dict_list[-2]
+
+
+# noinspection PyPep8Naming
+def get_aPER_from_stat_dict(stat_dict, team_object):
+    """
+    A calculation of the aPER, which is the PER measurement BEFORE normalization.
+
+    :param stat_dict:
+    :type stat_dict: dict[str, int or str]
+    :param team_object:
+    :type team_object: teamScripts.NBATeam
+    :return:
+    :rtype:
+    """
+    MIN = stat_dict['MIN']
+    FG3M = stat_dict['FG3M']
+    AST = stat_dict['AST']
+    FGM = stat_dict['FGM']
+    FTM = stat_dict['FTM']
+    TOV = stat_dict['TOV']
+    FGA = stat_dict['FGA']
+    FTA = stat_dict['FTA']
+    REB = stat_dict['REB']
+    OREB = stat_dict['OREB']
+    STL = stat_dict['STL']
+    BLK = stat_dict['BLK']
+    PF = stat_dict['PF']
+
+    team_ast_percentage = team_object.get_assist_percentage()
+    pace_adjustment = team_object.get_pace_adjustment()
+
+    league_ast_factor = team_object.current_league_object.get_league_assist_factor()
+    league_ppp = team_object.current_league_object.get_league_ppp()
+    league_dreb_percentage = team_object.current_league_object.get_league_defensive_reb_percentage()
+    league_foul_factor = team_object.current_league_object.get_league_foul_factor()
+
+    uPER = (1 / MIN) * (FG3M
+                        + (2 / 3) * AST
+                        + (2 - league_ast_factor * team_ast_percentage) * FGM
+                        + (FTM * 0.5 * (1 + (1 - team_ast_percentage) + (2 / 3) * team_ast_percentage))
+                        - league_ppp * TOV
+                        - league_ppp * league_dreb_percentage * (FGA - FGM)
+                        - league_ppp * 0.44 * (0.44 + (0.56 * league_dreb_percentage)) * (FTA - FTM)
+                        + league_ppp * (1 - league_dreb_percentage) * (REB - OREB)
+                        + league_ppp * league_dreb_percentage * OREB
+                        + league_ppp * STL
+                        + league_ppp * league_dreb_percentage * BLK
+                        - PF * league_foul_factor)
+
+    return uPER * pace_adjustment
