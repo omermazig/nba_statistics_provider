@@ -429,7 +429,7 @@ class NBALeague(object):
         aPer_sum = 0
         # Getting qualifying players for stat - players with a team that are on pace to play at least 500 minutes
         qualifying_players = [p for p in self.players_on_teams_objects_list if p.stats_dict and
-                              p.is_player_over_projected_minutes_limit(minutes_limit=500)]
+                              p._is_player_over_projected_minutes_limit(minutes_limit=500)]
         num_of_players_on_teams = len(qualifying_players)
 
         for i, my_player_object in enumerate(qualifying_players, start=1):

@@ -16,9 +16,8 @@ class NBAStatObject(object):
     """
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, season, initialize_stat_classes, goldsberry_object_name):
+    def __init__(self, season, initialize_stat_classes):
         self.season = season
-        self.goldsberry_object_name = goldsberry_object_name
         """:type : str"""
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -26,7 +25,7 @@ class NBAStatObject(object):
 
     @property
     @abc.abstractmethod
-    def object_indicator(self):
+    def _object_indicator(self):
         """
 
         :return:
@@ -85,13 +84,13 @@ class NBAStatObject(object):
         pass
 
     @property
-    def stats_page_url(self):
+    def _stats_page_url(self):
         """
         Om NBA.COM
         :return:
         :rtype: str
         """
-        player_stat_page_regex = "http://stats.nba.com/%s/#!/{id}/stats/" % self.object_indicator
+        player_stat_page_regex = "http://stats.nba.com/%s/#!/{id}/stats/" % self._object_indicator
         return player_stat_page_regex.format(id=self.id)
 
     def __cmp__(self, other):
@@ -113,7 +112,7 @@ class NBAStatObject(object):
         return "{name} Object".format(name=self.name)
 
     def _initialize_stat_class(self, stat_class_name):
-        goldsberry_object = getattr(goldsberry, self.goldsberry_object_name)
+        goldsberry_object = getattr(goldsberry, self._object_indicator)
         stat_class = getattr(goldsberry_object, stat_class_name)(self.id, self.season)
         """:type : NbaDataProvider"""
         setattr(self, stat_class_name, stat_class)
@@ -136,7 +135,7 @@ class NBAStatObject(object):
         :rtype: None
         """
         print('Initializing stat classes for %s object..' % self.name)
-        goldsberry_object = getattr(goldsberry, self.goldsberry_object_name)
+        goldsberry_object = getattr(goldsberry, self._object_indicator)
         public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry_object) if
                                      not stat_class1.startswith('_')]
 
@@ -153,7 +152,7 @@ class NBAStatObject(object):
         :return:
         :rtype: None
         """
-        webbrowser.open(self.stats_page_url)
+        webbrowser.open(self._stats_page_url)
 
     def get_effective_field_goal_percentage_on_contested_shots_outside_10_feet(self):
         """

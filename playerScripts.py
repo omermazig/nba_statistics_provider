@@ -62,8 +62,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :type initialize_stat_classes: bool
         """
         self.player_dict = self._get_player_dict(player_name_or_id, season)
-        super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
-                                        goldsberry_object_name=self.object_indicator)
+        super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
         self.season = season
         """:type : str"""
 
@@ -106,7 +105,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return filtered_player_dicts_list[0]
 
     @property
-    def object_indicator(self):
+    def _object_indicator(self):
         return "player"
 
     @property
@@ -146,13 +145,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: Last team player played for in the given season
         :rtype: int
         """
-        num_of_matching_dicts = len(self.players_all_stats_dicts)
+        num_of_matching_dicts = len(self._players_all_stats_dicts)
         if num_of_matching_dicts == 0:
             return None
         elif num_of_matching_dicts == 1:
-            return self.players_all_stats_dicts[0]['TEAM_ID']
+            return self._players_all_stats_dicts[0]['TEAM_ID']
         else:
-            return [career_stats_dict for career_stats_dict in self.players_all_stats_dicts if
+            return [career_stats_dict for career_stats_dict in self._players_all_stats_dicts if
                     career_stats_dict['TEAM_ID']][-1]['TEAM_ID']
 
     @staticmethod
@@ -172,7 +171,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                     stats_dict['TEAM_ABBREVIATION'] == 'TOT'][0]
 
     @cached_property
-    def players_all_stats_dicts(self):
+    def _players_all_stats_dicts(self):
         """
         NOTE: goldsberry originated object of 'career_stats' is essential for this property, so we initialize it if
         it's not already initialized.
@@ -194,7 +193,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: A dict that represent the player's basic total stats for the given season
         :rtype: dict
         """
-        return self._get_relevant_stat_dict_for_list_of_stat_dicts(self.players_all_stats_dicts)
+        return self._get_relevant_stat_dict_for_list_of_stat_dicts(self._players_all_stats_dicts)
 
     @property
     def _players_all_stats_dicts_per_game(self):
@@ -203,7 +202,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         represents a team (or TOTAL, if the player had more then one)
         :rtype: list[dict]
         """
-        return [utilsScripts.get_per_game_from_total_stats(stat_dict) for stat_dict in self.players_all_stats_dicts]
+        return [utilsScripts.get_per_game_from_total_stats(stat_dict) for stat_dict in self._players_all_stats_dicts]
 
     @property
     def player_stats_dict_per_game(self):
@@ -251,7 +250,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: Whether or not the player played on more then one team this season
         :rtype: bool
         """
-        return len(self.players_all_stats_dicts) == 1
+        return len(self._players_all_stats_dicts) == 1
 
     def is_three_point_shooter(self, attempts_limit=50, only_recent_team=False):
         """
@@ -264,7 +263,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype : bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             try:
                 return stat_dict['FG3A'] > attempts_limit
@@ -284,7 +283,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict["FGA"] > limit
         else:
@@ -327,7 +326,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict['AST'] > limit
         else:
@@ -344,13 +343,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: bool
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self.players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
         if stat_dict:
             return stat_dict['MIN'] > limit
         else:
             return False
 
-    def is_player_over_projected_minutes_limit(self, minutes_limit=1000):
+    def _is_player_over_projected_minutes_limit(self, minutes_limit=1000):
         """
         Returns whether or not the player is projected to pass a given minutes limit.
 
@@ -359,9 +358,9 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: bool
         """
-        return self.get_player_projected_minutes_played() > minutes_limit
+        return self._get_player_projected_minutes_played() > minutes_limit
 
-    def get_player_projected_minutes_played(self):
+    def _get_player_projected_minutes_played(self):
         """
         Based on how many minutes a player already played and how many games his team has left, returns a projection of
         how many minutes the player will finish the season with.
@@ -511,7 +510,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return teammates_fgm, teammates_fg3m, teammates_fga
 
-    def get_teammates_effective_field_goal_percentage(self):
+    def _get_teammates_effective_field_goal_percentage(self):
         """
         :return: tuple of the EFG% on shots of teammates, and the amount of those shots
         :rtype: tuple(float, int)
@@ -532,7 +531,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return utilsScripts.get_effective_field_goal_percentage_from_multiple_shot_charts(
             self.passing_dashboard.passes_made())
 
-    def get_teammates_effective_field_goal_percentage_without_passes(self):
+    def _get_teammates_effective_field_goal_percentage_without_passes(self):
         """
         :return: tuple of the FG% on shots of teammates that were not after a pass, and the amount of those shots.
         :rtype: tuple(float, int)
@@ -568,7 +567,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return 0, 0
         else:
             teammates_efg_on_shots_not_after_pass_from_player, teammates_number_of_shots_not_after_pass_from_player = \
-                self.get_teammates_effective_field_goal_percentage_without_passes()
+                self._get_teammates_effective_field_goal_percentage_without_passes()
             if teammates_number_of_shots_not_after_pass_from_player == 0:
                 return 0, 0
             return teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player, \

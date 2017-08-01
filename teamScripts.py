@@ -37,8 +37,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :rtype : NBATeam
         """
         self.team_name_or_id = team_name_or_id
-        super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
-                                      goldsberry_object_name=self.object_indicator)
+        super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
         print('Initialize %s team object...' % self.name)
         self.season = season
         if initialize_game_objects:
@@ -51,7 +50,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
             del player_object
 
     @property
-    def object_indicator(self):
+    def _object_indicator(self):
         return "team"
 
     @property
