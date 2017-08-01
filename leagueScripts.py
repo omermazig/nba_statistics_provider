@@ -338,7 +338,7 @@ class NBALeague(object):
             print('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 diff_in_teammates_efg_percentage = \
-                    my_player_object.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots()
+                    my_player_object.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes()
                 players_name_and_result.append((my_player_object.name,
                                                 diff_in_teammates_efg_percentage))
             except PlayerHasMoreThenOneTeam:

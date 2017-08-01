@@ -554,12 +554,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                 teammates_fga_without_player_pass)
             return effective_field_goal_percent_without_a_pass, teammates_fga_without_player_pass
 
-    def get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots(self):
+    def get_diff_in_teammates_efg_percentage_on_shots_from_player_passes(self):
         """
 
         :return: tuple of:
-        the diff in EFG% between shots of teammates that were after a pass, and ones that were not after a pass,
-        and the amount of the teammates shots.
+        The diff in EFG% between shots of teammates that were after a pass by him, and ones that were not.
+        The amount of the teammates shots.
         :rtype: tuple(float, int)
         """
         teammates_efg_on_shots_after_pass_from_player, teammates_number_of_shots_after_pass_from_player = \
@@ -615,7 +615,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: None
         """
-        diff_in_efg = self.get_diff_in_teammates_efg_percentage_between_shots_from_player_passes_to_other_shots
+        diff_in_efg = self.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       diff_in_efg,
                                                                       "- change in teammates %EFG "
