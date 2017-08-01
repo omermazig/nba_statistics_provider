@@ -349,7 +349,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return False
 
-    def _is_player_over_projected_minutes_limit(self, minutes_limit=1000):
+    def is_player_over_projected_minutes_limit(self, minutes_limit=1000):
         """
         Returns whether or not the player is projected to pass a given minutes limit.
 
