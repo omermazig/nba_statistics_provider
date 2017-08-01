@@ -35,7 +35,7 @@ def must_have_one_team_wrapper(func1):
         :return:
         :rtype:
         """
-        if not len(args[0].players_all_stats_dicts) == 1:
+        if not args[0].is_single_team_player():
             raise PlayerHasMoreThenOneTeam
         else:
             return func1(*args)
@@ -244,6 +244,14 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             print('Initializing game number %s' % (game_number + 1))
             regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
+
+    def is_single_team_player(self):
+        """
+
+        :return: Whether or not the player played on more then one team this season
+        :rtype: bool
+        """
+        return len(self.players_all_stats_dicts) == 1
 
     def is_three_point_shooter(self, attempts_limit=50, only_recent_team=False):
         """
@@ -717,7 +725,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
 
         :return:
-        :rtype: dict[str, dict]
+        :rtype: dict[str, dict[str, float]]
         """
         over_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] >= 30]
         under_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] < 30]

@@ -180,7 +180,10 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
         dict2['TOTAL_' + wage_key] = sum(dict1[wage_key])
 
     for key in percentage_keys_to_create_back:
-        dict2[key] = dict2[key.replace('_PCT', 'M')] / float(dict2[key.replace('_PCT', 'A')])
+        try:
+            dict2[key] = dict2[key.replace('_PCT', 'M')] / float(dict2[key.replace('_PCT', 'A')])
+        except ZeroDivisionError:
+            dict2[key] = 0
 
     if 'TOTAL_WL' in dict2.keys():
         wins_and_losses = dict2.pop('TOTAL_WL')
@@ -498,7 +501,7 @@ def get_aPER_from_stat_dict(stat_dict, team_object):
     A calculation of the aPER, which is the PER measurement BEFORE normalization.
 
     :param stat_dict:
-    :type stat_dict: dict[str, int or str]
+    :type stat_dict: dict[str, float or str]
     :param team_object:
     :type team_object: teamScripts.NBATeam
     :return:
