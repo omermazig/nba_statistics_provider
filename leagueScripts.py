@@ -289,6 +289,38 @@ class NBALeague(object):
                 team_all_shooters_lineups_dicts)
         return league_all_shooters_lineups_dicts
 
+    def get_players_sorted_by_diff_in_per_between_minutes_played(self):
+        """
+
+        :return:
+        :rtype: list[(string, float)]
+        """
+        print('Filtering out players with not enough minutes...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+                                        my_player_object.is_player_over_minutes_limit() and
+                                        my_player_object.is_single_team_player()]
+
+        print('Getting relevant data...')
+        players_name_and_result = []
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            try:
+                my_team_object = my_player_object.current_team_object
+                games_split = my_player_object.get_over_minutes_limit_games_per_36_stats_compared_to_other_games()
+                over_limit_stats = games_split['Over 30 minutes']
+                under_limit_stats = games_split['Under 30 minutes']
+                if (over_limit_stats and under_limit_stats) and \
+                        (over_limit_stats['NUM_OF_ITEMS'] > 20 and under_limit_stats['NUM_OF_ITEMS'] > 20):
+                    diff = utilsScripts.get_aPER_from_stat_dict(over_limit_stats, my_team_object) - \
+                           utilsScripts.get_aPER_from_stat_dict(under_limit_stats, my_team_object)
+                    players_name_and_result.append((my_player_object.name,
+                                                    diff))
+            except PlayerHasMoreThenOneTeam:
+                pass
+        print('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[-1], reverse=True)
+        return players_name_and_result
+
     def get_players_sorted_by_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
         """
         Sort all the players WITH MORE THEN 50 ASSISTS this season, by how much better their teammates shot the ball
@@ -407,9 +439,9 @@ class NBALeague(object):
             players_name_and_result.append((my_player_object.name, aPER))
 
         print('Normalizing aPER to PER on list...')
-        aPer_average = aPer_sum/num_of_players_on_teams
+        aPer_average = aPer_sum / num_of_players_on_teams
         for i in range(len(players_name_and_result)):
-            per = players_name_and_result[i][1] * (15/aPer_average)
+            per = players_name_and_result[i][1] * (15 / aPer_average)
             players_name_and_result[i] = (players_name_and_result[i][0], per)
 
         print('Sorting...')
@@ -454,7 +486,7 @@ class NBALeague(object):
         """
         d_reb = self.get_league_classic_stat_sum('DREB')
         reb = self.get_league_classic_stat_sum('REB')
-        return d_reb/reb
+        return d_reb / reb
 
     def get_league_assist_factor(self):
         """
@@ -465,7 +497,7 @@ class NBALeague(object):
         assists = self.get_league_classic_stat_sum('AST')
         field_goals_made = self.get_league_classic_stat_sum('FGM')
         free_throws_made = self.get_league_classic_stat_sum('FTM')
-        return (2/3) - (0.5*(assists / field_goals_made)) / (2*(field_goals_made / free_throws_made))
+        return (2 / 3) - (0.5 * (assists / field_goals_made)) / (2 * (field_goals_made / free_throws_made))
 
     def get_league_foul_factor(self):
         """
@@ -477,7 +509,7 @@ class NBALeague(object):
         free_throws_attempted = self.get_league_classic_stat_sum('FTA')
         personal_fouls = self.get_league_classic_stat_sum('PF')
         ppp = self.get_league_ppp()
-        return (free_throws_made/personal_fouls) - (0.44 * (free_throws_attempted/personal_fouls) * ppp)
+        return (free_throws_made / personal_fouls) - (0.44 * (free_throws_attempted / personal_fouls) * ppp)
 
     def get_league_num_of_possessions(self):
         """
@@ -500,7 +532,7 @@ class NBALeague(object):
         for team_stat_dict in self.team_stats_classic.stats():
             offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
         minutes_played = self.get_league_classic_stat_sum('MIN')
-        return (offensive_possessions/minutes_played)*48
+        return (offensive_possessions / minutes_played) * 48
 
     def print_league_playtype_point_per_possession(self):
         """
