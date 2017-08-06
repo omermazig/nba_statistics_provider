@@ -31,7 +31,7 @@ def must_have_one_team_wrapper(func1):
         """
 
         :param args: a list that contains only self
-        :type args: list
+        :type args: tuple(self)
         :return:
         :rtype:
         """
@@ -733,6 +733,38 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                                                                      per_36=True),
             ('Under %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(under_limit_game_dicts,
                                                                                       per_36=True)}
+
+    def get_teammate_cooperation_stats(self, teammate_name):
+        """
+        Receives a teammate's name and returns team's advanced stat dict for minutes:
+        -When player AND teammate are on the floor together
+        -When player is on the floor WITHOUT the teammate
+
+        :param teammate_name:
+        :type teammate_name: str
+        :return:
+        :rtype: dict[str, dict[str, float]]
+        """
+        teammate_object = self.current_team_object.get_player_object_by_name(teammate_name)
+        lineups_with_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self, teammate_object])
+        lineups_without_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self],
+                                                                                      black_list=[teammate_object])
+        stats_with_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_with_teammate)
+        stats_without_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_without_teammate)
+        return {
+            ('Stats With %s' % teammate_name): stats_with_teammate,
+            ('Stats Without %s' % teammate_name): stats_without_teammate}
+
+    def get_net_rating_with_and_without_teammate(self, teammate_name):
+        """
+
+        :param teammate_name:
+        :type teammate_name: str
+        :return:
+        :rtype: dict[str, dict[str, float]]
+        """
+        a = self.get_teammate_cooperation_stats(teammate_name)
+        return a[('Stats With %s' % teammate_name)]['NET_RATING'], a[('Stats Without %s' % teammate_name)]['NET_RATING']
 
 
 if __name__ == "__main__":
