@@ -509,8 +509,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             raise ValueError('Wrong param. Has to be "Right" or "Left"')
         jump_shot_data = self._get_shooting_data_from_floor_side(side)
         efg_percentage = utilsScripts.calculate_efg_percent(jump_shot_data[0],
-                                                                                              jump_shot_data[1],
-                                                                                              jump_shot_data[2])
+                                                            jump_shot_data[1],
+                                                            jump_shot_data[2])
         return efg_percentage, jump_shot_data[2]
 
     def get_efg_percentage_from_right_side(self):
@@ -742,6 +742,44 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return 0, 0
 
+    def get_team_off_rtg_on_off_court(self):
+        """
+
+        :return: The player's current team's offensive rating when he's ON and OFF the court
+        :rtype: tuple(float, float)
+        """
+        if self.current_team_object is None:
+            raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
+                player_name=self.name))
+        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
+                                                    x['VS_PLAYER_ID'] == self.id]
+        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
+                                                     x['VS_PLAYER_ID'] == self.id]
+        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
+            return team_advanced_stats_with_player_on_court[0]['OFF_RATING'], \
+                   team_advanced_stats_with_player_off_court[0]['OFF_RATING']
+        else:
+            return 0, 0
+
+    def get_team_def_rtg_on_off_court(self):
+        """
+
+        :return: The player's current team's defensive rating when he's ON and OFF the court
+        :rtype: tuple(float, float)
+        """
+        if self.current_team_object is None:
+            raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
+                player_name=self.name))
+        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
+                                                    x['VS_PLAYER_ID'] == self.id]
+        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
+                                                     x['VS_PLAYER_ID'] == self.id]
+        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
+            return team_advanced_stats_with_player_on_court[0]['DEF_RATING'], \
+                   team_advanced_stats_with_player_off_court[0]['DEF_RATING']
+        else:
+            return 0, 0
+
     def get_team_net_rtg_on_off_court_diff(self):
         """
 
@@ -753,6 +791,30 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         except PlayerHasNoTeam:
             return 0
         return on_court_net_rtg - off_court_net_rtg
+
+    def get_team_off_rtg_on_off_court_diff(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        try:
+            on_court_off_rtg, off_court_off_rtg = self.get_team_off_rtg_on_off_court()
+        except PlayerHasNoTeam:
+            return 0
+        return on_court_off_rtg - off_court_off_rtg
+
+    def get_team_def_rtg_on_off_court_diff(self):
+        """
+
+        :return:
+        :rtype: float
+        """
+        try:
+            on_court_def_rtg, off_court_def_rtg = self.get_team_def_rtg_on_off_court()
+        except PlayerHasNoTeam:
+            return 0
+        return on_court_def_rtg - off_court_def_rtg
 
     def get_all_time_game_objects(self, initialize_stat_classes=False):
         """
@@ -802,7 +864,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             ('Stats With %s' % teammate_name): stats_with_teammate,
             ('Stats Without %s' % teammate_name): stats_without_teammate}
 
-    def get_net_rating_with_and_without_teammate(self, teammate_name):
+    def get_net_rtg_with_and_without_teammate(self, teammate_name):
         """
 
         :param teammate_name:
