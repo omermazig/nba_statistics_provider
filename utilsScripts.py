@@ -291,8 +291,8 @@ def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes
     :type three_pointer_makes: three_pointer_makes
     :param field_goal_attempts: field_goal_attempts
     :type field_goal_attempts: field_goal_attempts
-    :return:The EFG%
-    :rtype:float
+    :return: The EFG%
+    :rtype: float
     """
     if field_goal_attempts == 0:
         effective_field_goal_percentage = 0
