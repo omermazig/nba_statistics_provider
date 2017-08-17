@@ -283,7 +283,7 @@ def _convert_dict_of_dicts_into_list_of_dicts(dict_of_dicts_to_convert, original
     return list_of_dicts_to_return
 
 
-def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes, field_goal_attempts):
+def calculate_efg_percent(field_goal_makes, three_pointer_makes, field_goal_attempts):
     """
     :param field_goal_makes: field_goal_makes
     :type field_goal_makes: field_goal_makes
@@ -295,24 +295,24 @@ def calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes
     :rtype: float
     """
     if field_goal_attempts == 0:
-        effective_field_goal_percentage = 0
+        efg_percentage = 0
     else:
-        effective_field_goal_percentage = (field_goal_makes + (0.5 * three_pointer_makes)) / field_goal_attempts
-    return effective_field_goal_percentage
+        efg_percentage = (field_goal_makes + (0.5 * three_pointer_makes)) / field_goal_attempts
+    return efg_percentage
 
 
-def calculate_ppp_from_effective_field_goal_percent(effective_field_goal_percent):
+def calculate_ppp_from_efg_percent(efg_percent):
     """
 
-    :param effective_field_goal_percent:
-    :type effective_field_goal_percent:
+    :param efg_percent:
+    :type efg_percent:
     :return:
     :rtype:
     """
-    return PrettyFloat(effective_field_goal_percent * 2)
+    return PrettyFloat(efg_percent * 2)
 
 
-def get_effective_field_goal_relevant_data_from_multiple_shot_charts(shot_charts):
+def get_efg_relevant_data_from_multiple_shot_charts(shot_charts):
     """
     Receives a list of shot charts, and returns a tuple with the relevant data to calculate effective field goal
     percentage
@@ -338,7 +338,7 @@ def get_effective_field_goal_relevant_data_from_multiple_shot_charts(shot_charts
         return field_goal_makes, three_pointer_makes, field_goal_attempts
 
 
-def get_effective_field_goal_percentage_from_multiple_shot_charts(shot_charts):
+def get_efg_percentage_from_multiple_shot_charts(shot_charts):
     """
     Receives a list of shot charts, and returns the effective field goal percentage, alongside with the number of shots
     EFG% = FGM + (0.5 * FG3M) / FGA
@@ -348,11 +348,11 @@ def get_effective_field_goal_percentage_from_multiple_shot_charts(shot_charts):
     :rtype: tuple(float)
     """
     field_goal_makes, three_pointer_makes, field_goal_attempts = \
-        get_effective_field_goal_relevant_data_from_multiple_shot_charts(shot_charts)
+        get_efg_relevant_data_from_multiple_shot_charts(shot_charts)
     if field_goal_attempts == 0:
         return 0, 0
     else:
-        return calculate_effective_field_goal_percent(field_goal_makes, three_pointer_makes,
+        return calculate_efg_percent(field_goal_makes, three_pointer_makes,
                                                       field_goal_attempts), field_goal_attempts
 
 

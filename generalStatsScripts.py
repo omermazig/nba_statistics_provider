@@ -154,7 +154,7 @@ class NBAStatObject(object):
         """
         webbrowser.open(self._stats_page_url)
 
-    def get_effective_field_goal_percentage_on_contested_shots_outside_10_feet(self):
+    def get_efg_percentage_on_contested_shots_outside_10_feet(self):
         """
         Contested - defender within 4 feet
         :return: tuple of the FG% on contested shots, and the amount of those shots.
@@ -174,13 +174,13 @@ class NBAStatObject(object):
         if contested_field_goal_attempts == 0:
             return 0, 0
         else:
-            effective_field_goal_percentage = utilsScripts.calculate_effective_field_goal_percent(
+            efg_percentage = utilsScripts.calculate_efg_percent(
                 contested_field_goal_makes,
                 contested_3_pointer_makes,
                 contested_field_goal_attempts)
-            return effective_field_goal_percentage, contested_field_goal_attempts
+            return efg_percentage, contested_field_goal_attempts
 
-    def get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet(self):
+    def get_efg_percentage_on_uncontested_shots_outside_10_feet(self):
         """
         Contested - defender within more then 4 feet
         :return: tuple of the FG% on uncontested shots, and the amount of those shots.
@@ -200,11 +200,11 @@ class NBAStatObject(object):
         if uncontested_field_goal_attempts == 0:
             return 0, 0
         else:
-            effective_field_goal_percentage = utilsScripts.calculate_effective_field_goal_percent(
+            efg_percentage = utilsScripts.calculate_efg_percent(
                 uncontested_field_goal_makes,
                 uncontested_3_pointer_makes,
                 uncontested_field_goal_attempts)
-            return effective_field_goal_percentage, uncontested_field_goal_attempts
+            return efg_percentage, uncontested_field_goal_attempts
 
     def get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet(self):
         """
@@ -215,12 +215,12 @@ class NBAStatObject(object):
         :rtype: tuple(float, float)
         """
         efg_on_uncontested_shots_outside_10_feet, number_of_uncontested_shots_outside_10_feet = \
-            self.get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet()
+            self.get_efg_percentage_on_uncontested_shots_outside_10_feet()
         if number_of_uncontested_shots_outside_10_feet == 0:
             return 0, 0
         else:
             efg_on_contested_shots_outside_10_feet, number_of_contested_shots_outside_10_feet = \
-                self.get_effective_field_goal_percentage_on_contested_shots_outside_10_feet()
+                self.get_efg_percentage_on_contested_shots_outside_10_feet()
             if number_of_contested_shots_outside_10_feet == 0:
                 return 0, 100
             diff_in_efg = efg_on_uncontested_shots_outside_10_feet - efg_on_contested_shots_outside_10_feet

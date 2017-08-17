@@ -425,7 +425,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     #     """
     #     return self._get_average_defender_distance_depending_on_previous_shot_result(0)
 
-    def _get_effective_field_goal_percentage_depending_on_previous_shots_results(self, shot_result,
+    def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result,
                                                                                  number_of_previous_shots_to_check=1):
         """
         :param shot_result: made (1) or missed (2)
@@ -462,23 +462,70 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if player_fga == 0:
             return 0, 0
         else:
-            return utilsScripts.calculate_effective_field_goal_percent(player_fgm, player_fg3m, player_fga), player_fga
+            return utilsScripts.calculate_efg_percent(player_fgm, player_fg3m, player_fga), player_fga
 
-    def get_effective_field_goal_percentage_after_makes(self, number_of_previous_shots_to_check=1):
+    def get_efg_percentage_after_makes(self, number_of_previous_shots_to_check=1):
         """
         :return: tuple of the EFG% on shots after makes, and the amount of those shots
         :rtype: tuple(float, int)
         """
-        return self._get_effective_field_goal_percentage_depending_on_previous_shots_results(
+        return self._get_efg_percentage_depending_on_previous_shots_results(
             shot_result=1, number_of_previous_shots_to_check=number_of_previous_shots_to_check)
 
-    def get_effective_field_goal_percentage_after_misses(self, number_of_previous_shots_to_check=1):
+    def get_efg_percentage_after_misses(self, number_of_previous_shots_to_check=1):
         """
         :return: tuple of the EFG% on shots after misses, and the amount of those shots
         :rtype: tuple(float, int)
         """
-        return self._get_effective_field_goal_percentage_depending_on_previous_shots_results(
+        return self._get_efg_percentage_depending_on_previous_shots_results(
             shot_result=0, number_of_previous_shots_to_check=number_of_previous_shots_to_check)
+
+    def _get_shooting_data_from_floor_side(self, side):
+        """
+        Finds the logs for all the shots from a side of the floor, and returns all of the necessary data
+        to calculate EFG%
+
+        :param side: Right or Left
+        :type side: str
+        :return: A dict with number of FG made, number of 3FG made, and number on FG attempted
+        :rtype: tuple(float, float, float)
+        """
+        if not side in['Right', 'Left']:
+            raise ValueError('Wrong param. Has to be "Right" or "Left"')
+        jump_shot_logs = [shot_log for shot_log in self.shot_chart.chart() if side.capitalize() in shot_log['SHOT_ZONE_AREA']]
+        made_jump_shot_logs = [shot_log for shot_log in jump_shot_logs if shot_log['SHOT_MADE_FLAG']]
+        made_3_jump_shot_logs = [shot_log for shot_log in made_jump_shot_logs if shot_log['SHOT_TYPE'] == '3PT Field Goal']
+        return len(made_jump_shot_logs), len(made_3_jump_shot_logs), len(jump_shot_logs)
+
+    def _get_efg_percentage_from_side(self, side):
+        """
+
+        :param side: Right or Left
+        :type side: str
+        :return: tuple of the EFG% on shots from a side of the floor, and the amount of those shots
+        :rtype: tuple(float, int)
+        """
+        if not side in['Right', 'Left']:
+            raise ValueError('Wrong param. Has to be "Right" or "Left"')
+        jump_shot_data = self._get_shooting_data_from_floor_side(side)
+        efg_percentage = utilsScripts.calculate_efg_percent(jump_shot_data[0],
+                                                                                              jump_shot_data[1],
+                                                                                              jump_shot_data[2])
+        return efg_percentage, jump_shot_data[2]
+
+    def get_efg_percentage_from_right_side(self):
+        """
+        :return: tuple of the EFG% on shots from the right side of the floor, and the amount of those shots
+        :rtype: tuple(float, int)
+        """
+        return self._get_efg_percentage_from_side('Right')
+
+    def get_efg_percentage_from_left_side(self):
+        """
+        :return: tuple of the EFG% on shots from the left side of the floor, and the amount of those shots
+        :rtype: tuple(float, int)
+        """
+        return self._get_efg_percentage_from_side('Left')
 
     @must_have_one_team_wrapper
     def _get_teammates_relevant_shooting_stats(self):
@@ -510,7 +557,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return teammates_fgm, teammates_fg3m, teammates_fga
 
-    def _get_teammates_effective_field_goal_percentage(self):
+    def _get_teammates_efg_percentage(self):
         """
         :return: tuple of the EFG% on shots of teammates, and the amount of those shots
         :rtype: tuple(float, int)
@@ -520,25 +567,25 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if teammates_fga == 0:
             return 0, 0
         else:
-            return utilsScripts.calculate_effective_field_goal_percent(teammates_fgm, teammates_fg3m,
+            return utilsScripts.calculate_efg_percent(teammates_fgm, teammates_fg3m,
                                                                        teammates_fga), teammates_fga
 
-    def get_teammates_effective_field_goal_percentage_from_passes(self):
+    def get_teammates_efg_percentage_from_passes(self):
         """
         :return: tuple of the EFG% on shots of teammates after a pass, and the amount of those shots
         :rtype: tuple(float, int)
         """
-        return utilsScripts.get_effective_field_goal_percentage_from_multiple_shot_charts(
+        return utilsScripts.get_efg_percentage_from_multiple_shot_charts(
             self.passing_dashboard.passes_made())
 
-    def _get_teammates_effective_field_goal_percentage_without_passes(self):
+    def _get_teammates_efg_percentage_without_passes(self):
         """
         :return: tuple of the FG% on shots of teammates that were not after a pass, and the amount of those shots.
         :rtype: tuple(float, int)
         """
         teammates_fgm, teammates_fg3m, teammates_fga = self._get_teammates_relevant_shooting_stats()
         teammates_fgm_from_player_passes, teammates_fg3m_from_player_passes, teammates_fga_from_player_passes = \
-            utilsScripts.get_effective_field_goal_relevant_data_from_multiple_shot_charts(
+            utilsScripts.get_efg_relevant_data_from_multiple_shot_charts(
                 self.passing_dashboard.passes_made())
 
         teammates_fgm_without_player_pass = teammates_fgm - teammates_fgm_from_player_passes
@@ -547,11 +594,11 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if teammates_fga_without_player_pass == 0:
             return 0, 0
         else:
-            effective_field_goal_percent_without_a_pass = utilsScripts.calculate_effective_field_goal_percent(
+            efg_percent_without_a_pass = utilsScripts.calculate_efg_percent(
                 teammates_fgm_without_player_pass,
                 teammates_fg3m_without_player_pass,
                 teammates_fga_without_player_pass)
-            return effective_field_goal_percent_without_a_pass, teammates_fga_without_player_pass
+            return efg_percent_without_a_pass, teammates_fga_without_player_pass
 
     def get_diff_in_teammates_efg_percentage_on_shots_from_player_passes(self):
         """
@@ -562,12 +609,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: tuple(float, int)
         """
         teammates_efg_on_shots_after_pass_from_player, teammates_number_of_shots_after_pass_from_player = \
-            self.get_teammates_effective_field_goal_percentage_from_passes()
+            self.get_teammates_efg_percentage_from_passes()
         if teammates_number_of_shots_after_pass_from_player == 0:
             return 0, 0
         else:
             teammates_efg_on_shots_not_after_pass_from_player, teammates_number_of_shots_not_after_pass_from_player = \
-                self._get_teammates_effective_field_goal_percentage_without_passes()
+                self._get_teammates_efg_percentage_without_passes()
             if teammates_number_of_shots_not_after_pass_from_player == 0:
                 return 0, 0
             return teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player, \
@@ -590,10 +637,10 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: None
         """
 
-        efg_after_makes = self.get_effective_field_goal_percentage_after_makes
-        efg_after_misses = self.get_effective_field_goal_percentage_after_misses
-        efg_on_contested = self.get_effective_field_goal_percentage_on_contested_shots_outside_10_feet
-        efg_on_uncontested = self.get_effective_field_goal_percentage_on_uncontested_shots_outside_10_feet
+        efg_after_makes = self.get_efg_percentage_after_makes
+        efg_after_misses = self.get_efg_percentage_after_misses
+        efg_on_contested = self.get_efg_percentage_on_contested_shots_outside_10_feet
+        efg_on_uncontested = self.get_efg_percentage_on_uncontested_shots_outside_10_feet
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_after_makes,
                                                                       "%EFG after a make")
@@ -780,7 +827,7 @@ if __name__ == "__main__":
     selected_season = '2015-16'
     for player_name in players_names_list:
         nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
-        nba_player.get_effective_field_goal_percentage_after_makes(number_of_previous_shots_to_check=7)
+        nba_player.get_efg_percentage_after_makes(number_of_previous_shots_to_check=7)
         # nba_player.print_passing_info()
 
         # national_tv_stats = nba_player.get_national_tv_all_time_per_game_stats()
