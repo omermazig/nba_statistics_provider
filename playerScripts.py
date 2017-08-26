@@ -641,6 +641,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         efg_after_misses = self.get_efg_percentage_after_misses
         efg_on_contested = self.get_efg_percentage_on_contested_shots_outside_10_feet
         efg_on_uncontested = self.get_efg_percentage_on_uncontested_shots_outside_10_feet
+        efg_right_side = self.get_efg_percentage_from_right_side
+        efg_left_side = self.get_efg_percentage_from_left_side
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_after_makes,
                                                                       "%EFG after a make")
@@ -653,6 +655,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
                                                                       efg_on_uncontested,
                                                                       "%EFG on uncontested shot outside 10 feet")
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_right_side,
+                                                                      "%EFG on shots from the right side")
+        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                                      efg_left_side,
+                                                                      "%EFG on shots from the left side")
         print('')
 
     def print_passing_info(self):
