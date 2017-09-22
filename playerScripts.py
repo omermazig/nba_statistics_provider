@@ -863,6 +863,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: dict[str, dict[str, float]]
         """
         teammate_object = self.current_team_object.get_player_object_by_name(teammate_name)
+        teammate_name = teammate_object.name
         lineups_with_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self, teammate_object])
         lineups_without_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self],
                                                                                       black_list=[teammate_object])
