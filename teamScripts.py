@@ -62,7 +62,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         NBA team object
 
         :param team_name_or_id:
-        :type team_name_or_id: int or string
+        :type team_name_or_id: int or str
         :param season: Season to initialize team's data by
         :type season: str
         :param initialize_stat_classes: Whether to initialize team's stat classes or not (takes a little time)
