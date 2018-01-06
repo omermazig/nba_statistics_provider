@@ -13,7 +13,7 @@ import my_exceptions
 from goldsberry.apiparams import default_season
 import generalStatsScripts
 
-teams_name_dict = {'pistons': 1610612765,
+teams_id_dict = {'pistons': 1610612765,
                    'grizzlies': 1610612763,
                    'bucks': 1610612749,
                    'kings': 1610612758,
@@ -44,7 +44,7 @@ teams_name_dict = {'pistons': 1610612765,
                    'raptors': 1610612761,
                    'spurs': 1610612759
                    }
-teams_name_dict = {v: k for k, v in teams_name_dict.items()}
+teams_name_dict = {v: k for k, v in teams_id_dict.items()}
 
 
 nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(utilsScripts.pickles_folder_path,
