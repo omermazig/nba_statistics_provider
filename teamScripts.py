@@ -1,7 +1,6 @@
 """
 NBATeam object and necessary imports functions and consts
 """
-import pickle
 import os
 from cached_property import cached_property
 
@@ -14,11 +13,39 @@ import my_exceptions
 from goldsberry.apiparams import default_season
 import generalStatsScripts
 
-teams_id_dict_pickle_path = os.path.join(utilsScripts.pickles_folder_path, "nba_teams_numbers_dict.pickle")
-with open(teams_id_dict_pickle_path, 'rb') as file1:
-    teams_id_dict = pickle.load(file1)
-    """:type : dict"""
-teams_name_dict = {v: k for k, v in teams_id_dict.items()}
+teams_name_dict = {'pistons': 1610612765,
+                   'grizzlies': 1610612763,
+                   'bucks': 1610612749,
+                   'kings': 1610612758,
+                   'sixers': 1610612755,
+                   'hornets': 1610612740,
+                   'knicks': 1610612752,
+                   'warriors': 1610612744,
+                   'hawks': 1610612737,
+                   'wizards': 1610612764,
+                   'suns': 1610612756,
+                   'nuggets': 1610612743,
+                   'cavaliers': 1610612739,
+                   'jazz': 1610612762,
+                   'timberwolves': 1610612750,
+                   'clippers': 1610612746,
+                   'bulls': 1610612741,
+                   'blazers': 1610612757,
+                   'celtics': 1610612738,
+                   'nets': 1610612751,
+                   'magic': 1610612753,
+                   'mavericks': 1610612742,
+                   'bobcats': 1610612766,
+                   'heat': 1610612748,
+                   'lakers': 1610612747,
+                   'pacers': 1610612754,
+                   'rockets': 1610612745,
+                   'thunder': 1610612760,
+                   'raptors': 1610612761,
+                   'spurs': 1610612759
+                   }
+teams_name_dict = {v: k for k, v in teams_name_dict.items()}
+
 
 nba_teams_all_shooters_lineups_dicts_path_regex = os.path.join(utilsScripts.pickles_folder_path,
                                                                'nba_teams_all_shooters_lineups_dicts_{season}.pickle')
@@ -250,7 +277,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :return: League's pace divided by team's pace. Used for PER calculation
         :rtype: float
         """
-        return self.current_league_object.get_league_average_pace()/self.get_pace()
+        return self.current_league_object.get_league_average_pace() / self.get_pace()
 
     def get_assist_percentage(self):
         """
