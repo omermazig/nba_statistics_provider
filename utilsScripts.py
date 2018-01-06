@@ -1,7 +1,6 @@
 """
 All sort of util functions to help other classes with calculations
 """
-from __future__ import division
 import functools
 import os
 import csv

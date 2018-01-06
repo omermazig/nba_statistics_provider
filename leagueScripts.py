@@ -2,8 +2,6 @@
 All objects that represent a single season of the nba. NBALeague is the basic object.
 Also contains necessary imports functions and consts.
 """
-from __future__ import print_function
-from __future__ import division
 import os
 import pickle
 import time
@@ -551,7 +549,7 @@ class NBALeague(object):
         :rtype: None
         """
         with open(self.league_object_pickle_path, 'wb') as file_to_write_to:
-            'Updating pickle...'
+            print('Updating pickle...')
             pickle.dump(self, file_to_write_to)
 
     @staticmethod
@@ -575,9 +573,4 @@ if __name__ == "__main__":
     for year in range(2016, 2012, -1):
         league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
                                 initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
-        my_league_object_pickle_path = league_object_pickle_path_regex.format(season=league_year.season[:4] + 'kuku')
-        with open(my_league_object_pickle_path, 'wb') as file1:
-            'Updating pickle...'
-            pickle.dump(league_year, file1)
-
         league_year.pickle_league_object()
