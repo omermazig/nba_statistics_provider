@@ -898,8 +898,8 @@ if __name__ == "__main__":
     selected_season = '2015-16'
     for player_name in players_names_list:
         nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
-        nba_player.get_efg_percentage_after_makes(number_of_previous_shots_to_check=7)
-        # nba_player.print_passing_info()
+        nba_player.print_shooting_info()
+        nba_player.print_passing_info()
 
         # national_tv_stats = nba_player.get_national_tv_all_time_per_game_stats()
         # not_national_tv_stats = nba_player.get_not_national_tv_all_time_per_game_stats()
