@@ -414,8 +414,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     #     """
     #     return self._get_average_defender_distance_depending_on_previous_shot_result(0)
 
-    def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result,
-                                                                                 number_of_previous_shots_to_check=1):
+    def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result, number_of_previous_shots_to_check=1):
         """
         :param shot_result: made (1) or missed (2)
         :type shot_result: int
@@ -439,7 +438,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                 # Checking whether all the previous shots that we check had the same result ot not,
                 # AND whether it was the right result or not
                 if len(shots_to_check_condition_on_results_set) == 1 and \
-                                shots_to_check_condition_on_results_set[0] == shot_result:
+                        shots_to_check_condition_on_results_set[0] == shot_result:
                     # Verifying the shot was in the same game as the last one
                     if shots_dicts_list[i]['GAME_ID'] == shots_dicts_list[i - 1]['GAME_ID']:
                         if shots_dicts_list[i]['SHOT_MADE_FLAG']:
@@ -479,11 +478,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: A dict with number of FG made, number of 3FG made, and number on FG attempted
         :rtype: tuple(float, float, float)
         """
-        if not side in['Right', 'Left']:
+        if side not in ['Right', 'Left']:
             raise ValueError('Wrong param. Has to be "Right" or "Left"')
-        jump_shot_logs = [shot_log for shot_log in self.shot_chart.chart() if side.capitalize() in shot_log['SHOT_ZONE_AREA']]
+        jump_shot_logs = [shot_log for shot_log in self.shot_chart.chart() if
+                          side.capitalize() in shot_log['SHOT_ZONE_AREA']]
         made_jump_shot_logs = [shot_log for shot_log in jump_shot_logs if shot_log['SHOT_MADE_FLAG']]
-        made_3_jump_shot_logs = [shot_log for shot_log in made_jump_shot_logs if shot_log['SHOT_TYPE'] == '3PT Field Goal']
+        made_3_jump_shot_logs = [shot_log for shot_log in made_jump_shot_logs if
+                                 shot_log['SHOT_TYPE'] == '3PT Field Goal']
         return len(made_jump_shot_logs), len(made_3_jump_shot_logs), len(jump_shot_logs)
 
     def _get_efg_percentage_from_side(self, side):
@@ -494,7 +495,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: tuple of the EFG% on shots from a side of the floor, and the amount of those shots
         :rtype: tuple(float, int)
         """
-        if not side in['Right', 'Left']:
+        if side not in ['Right', 'Left']:
             raise ValueError('Wrong param. Has to be "Right" or "Left"')
         jump_shot_data = self._get_shooting_data_from_floor_side(side)
         efg_percentage = utilsScripts.calculate_efg_percent(jump_shot_data[0],
@@ -556,8 +557,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if teammates_fga == 0:
             return 0, 0
         else:
-            return utilsScripts.calculate_efg_percent(teammates_fgm, teammates_fg3m,
-                                                                       teammates_fga), teammates_fga
+            return utilsScripts.calculate_efg_percent(teammates_fgm, teammates_fg3m, teammates_fga), teammates_fga
 
     def get_teammates_efg_percentage_from_passes(self):
         """
@@ -607,7 +607,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             if teammates_number_of_shots_not_after_pass_from_player == 0:
                 return 0, 0
             return teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player, \
-                   teammates_number_of_shots_after_pass_from_player
+                teammates_number_of_shots_after_pass_from_player
 
     # noinspection PyPep8Naming
     def get_aPER(self):
