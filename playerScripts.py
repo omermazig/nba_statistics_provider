@@ -62,7 +62,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if initialize_game_objects:
             # Cache game objects. a is unused
             # noinspection PyUnusedLocal
-            a = self.player_regular_season_game_objects
+            a = self.regular_season_game_objects
 
     @staticmethod
     def _get_player_dict(player_name_or_id, season):
@@ -225,7 +225,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return int(self.player_dict['TO_YEAR'])
 
     @cached_property
-    def player_regular_season_game_objects(self):
+    def regular_season_game_objects(self):
         """
 
         :return:
