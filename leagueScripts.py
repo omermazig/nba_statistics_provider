@@ -571,7 +571,8 @@ class NBALeague(object):
 
 
 if __name__ == "__main__":
-    for year in range(2015, 2012, -1):
+    # TODO - Test why 2017 doesn't work
+    for year in range(2016, 2012, -1):
         league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
                                 initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
         my_league_object_pickle_path = league_object_pickle_path_regex.format(season=league_year.season[:4] + 'kuku')
