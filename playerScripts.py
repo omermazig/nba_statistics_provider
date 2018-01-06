@@ -57,12 +57,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype : NBAPlayer
         """
         self.player_dict = self._get_player_dict(player_name_or_id, season)
-        super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
-
-        if initialize_game_objects:
-            # Cache game objects. a is unused
-            # noinspection PyUnusedLocal
-            a = self.regular_season_game_objects
+        super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
+                                        initialize_game_objects=initialize_game_objects)
 
     @staticmethod
     def _get_player_dict(player_name_or_id, season):

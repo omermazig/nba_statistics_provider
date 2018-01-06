@@ -10,6 +10,7 @@ import goldsberry
 # noinspection PyUnresolvedReferences
 from goldsberry.masterclass import NbaDataProvider
 
+import gameScripts
 import utilsScripts
 
 
@@ -20,12 +21,16 @@ class NBAStatObject(object):
     """
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, season, initialize_stat_classes):
+    def __init__(self, season, initialize_stat_classes, initialize_game_objects):
         self.season = season
         """:type : str"""
         if initialize_stat_classes:
             self.initialize_stat_classes()
-        pass
+        if initialize_game_objects:
+            # Cache game objects. a is unused
+            # noinspection PyUnusedLocal
+            a = self.regular_season_game_objects
+
 
     @property
     @abc.abstractmethod
@@ -96,6 +101,20 @@ class NBAStatObject(object):
         """
         player_stat_page_regex = "http://stats.nba.com/%s/#!/{id}/stats/" % self._object_indicator
         return player_stat_page_regex.format(id=self.id)
+
+    @cached_property
+    def regular_season_game_objects(self):
+        """
+
+        :return:
+        :rtype: list[gameScripts.NBAGameTeam]
+        """
+        regular_season_game_objects = []
+        for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
+            print('Initializing game number %s' % (game_number + 1))
+            # TODO - Make NBAGame specefically NBATeam/NBAPlayer
+            regular_season_game_objects.append(gameScripts.NBAGame(game_log, initialize_stat_classes=True))
+        return regular_season_game_objects
 
     def __cmp__(self, other):
         """
