@@ -1,21 +1,15 @@
 """
 NBAPlayer object and necessary imports functions and consts
 """
-from __future__ import print_function
-from __future__ import division
 from cached_property import cached_property
-from retrying import retry
 
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
+import generalStatsScripts
 import teamScripts
 import gameScripts
 import utilsScripts
-import goldsberry
-import generalStatsScripts
 
-# import used only for type-hinting
-# noinspection PyUnresolvedReferences
-from goldsberry.masterclass import NbaDataProvider
+import goldsberry
 
 
 def must_have_one_team_wrapper(func1):
@@ -48,23 +42,22 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     An object that represent a single nba player in a single season.
     """
 
-    @retry(stop_max_attempt_number=3, wait_fixed=5000,
-           retry_on_exception=lambda exception: isinstance(exception, ConnectionError))
     def __init__(self, player_name_or_id, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
                  initialize_game_objects=False):
         """
         NBA player object
+
         :param player_name_or_id: can be a player id or full name with an underline ('steph_curry').
         :type player_name_or_id: int or str
         :param season: Season to initialize player's data by
         :type season: str
-        :param initialize_stat_classes: Whether to initialize player's stat classes or not (take a little time)
+        :param initialize_stat_classes: Whether to initialize player's stat classes or not (takes a little time)
         :type initialize_stat_classes: bool
+        :return: An NBA player object
+        :rtype : NBAPlayer
         """
         self.player_dict = self._get_player_dict(player_name_or_id, season)
         super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
-        self.season = season
-        """:type : str"""
 
         if initialize_game_objects:
             # Cache game objects. a is unused

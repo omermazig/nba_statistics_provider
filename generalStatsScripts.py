@@ -5,8 +5,12 @@ import webbrowser
 import abc
 from cached_property import cached_property
 
-import utilsScripts
 import goldsberry
+# import used only for type-hinting
+# noinspection PyUnresolvedReferences
+from goldsberry.masterclass import NbaDataProvider
+
+import utilsScripts
 
 
 class NBAStatObject(object):

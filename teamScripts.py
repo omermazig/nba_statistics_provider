@@ -4,14 +4,14 @@ NBATeam object and necessary imports functions and consts
 import os
 from cached_property import cached_property
 
-import goldsberry
+from my_exceptions import TooMuchPlayers, NoSuchPlayer
+import generalStatsScripts
 import playerScripts
-import leagueScripts
 import gameScripts
 import utilsScripts
-import my_exceptions
-from goldsberry.apiparams import default_season
-import generalStatsScripts
+import leagueScripts
+
+import goldsberry
 
 teams_id_dict = {'pistons': 1610612765,
                    'grizzlies': 1610612763,
@@ -56,18 +56,24 @@ class NBATeam(generalStatsScripts.NBAStatObject):
     An object that represent a single nba team in a single season.
     """
 
-    def __init__(self, team_name_or_id, season=default_season, initialize_stat_classes=True,
+    def __init__(self, team_name_or_id, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
                  initialize_game_objects=False):
         """
+        NBA team object
+
         :param team_name_or_id:
         :type team_name_or_id: int or string
+        :param season: Season to initialize team's data by
+        :type season: str
+        :param initialize_stat_classes: Whether to initialize team's stat classes or not (takes a little time)
+        :type initialize_stat_classes: bool
         :return: An NBA team object
         :rtype : NBATeam
         """
         self.team_name_or_id = team_name_or_id
         super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
         print('Initialize %s team object...' % self.name)
-        self.season = season
+
         if initialize_game_objects:
             # Cache game objects. a is unused
             # noinspection PyUnusedLocal
@@ -211,9 +217,9 @@ class NBATeam(generalStatsScripts.NBAStatObject):
                                         player_name in player_object.name]
         filtered_player_objects_list_length = len(filtered_player_objects_list)
         if filtered_player_objects_list_length == 0:
-            raise my_exceptions.NoSuchPlayer('There was no player matching the given name')
+            raise NoSuchPlayer('There was no player matching the given name')
         elif filtered_player_objects_list_length > 1:
-            raise my_exceptions.TooMuchPlayers(
+            raise TooMuchPlayers(
                 'There were more then one player matching the given name:\n%s' % [player_object.name for
                                                                                   player_object in
                                                                                   filtered_player_objects_list])
