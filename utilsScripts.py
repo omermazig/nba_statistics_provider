@@ -43,6 +43,7 @@ class PrettyFloat(float):
     """
     A float that has a better print
     """
+
     def __repr__(self):
         return "%0.2f" % self
 
@@ -352,7 +353,7 @@ def get_efg_percentage_from_multiple_shot_charts(shot_charts):
         return 0, 0
     else:
         return calculate_efg_percent(field_goal_makes, three_pointer_makes,
-                                                      field_goal_attempts), field_goal_attempts
+                                     field_goal_attempts), field_goal_attempts
 
 
 def get_stat_summation_from_list(stat_dicts, stat_key):
@@ -396,7 +397,7 @@ def get_num_of_possessions_from_stat_dict(stat_dict):
     :return: The number of possessions in the event which the dict represents
     :rtype: float
     """
-    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + (0.44*stat_dict['FTA'])
+    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + (0.44 * stat_dict['FTA'])
 
 
 def get_pace_from_stat_dict(stat_dict):

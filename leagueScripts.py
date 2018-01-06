@@ -474,8 +474,7 @@ class NBALeague(object):
         the offensive team.
         :rtype: float
         """
-        return self.get_league_classic_stat_sum('PTS') / \
-               self.get_league_num_of_possessions()
+        return self.get_league_classic_stat_sum('PTS') / self.get_league_num_of_possessions()
 
     def get_league_defensive_reb_percentage(self):
         """

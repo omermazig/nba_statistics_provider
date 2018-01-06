@@ -31,7 +31,6 @@ class NBAStatObject(object):
             # noinspection PyUnusedLocal
             a = self.regular_season_game_objects
 
-
     @property
     @abc.abstractmethod
     def _object_indicator(self):
@@ -88,7 +87,7 @@ class NBAStatObject(object):
         """
 
         :return: The last year that the object existed
-        :rtype: int
+        :rtype: dict[str, any]
         """
         pass
 
