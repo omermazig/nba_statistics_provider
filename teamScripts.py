@@ -71,13 +71,8 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         :rtype : NBATeam
         """
         self.team_name_or_id = team_name_or_id
-        super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes)
-        print('Initialize %s team object...' % self.name)
-
-        if initialize_game_objects:
-            # Cache game objects. a is unused
-            # noinspection PyUnusedLocal
-            a = self.regular_season_game_objects
+        super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
+                                      initialize_game_objects=initialize_game_objects)
 
     def __del__(self):
         for player_object in self.current_players_objects:
@@ -145,19 +140,6 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         """
         self._initialize_stat_class_if_not_initialized('year_by_year')
         return int(self.team_info.info()[0]['MAX_YEAR'])
-
-    @cached_property
-    def regular_season_game_objects(self):
-        """
-
-        :return:
-        :rtype: list[gameScripts.NBAGameTeam]
-        """
-        regular_season_game_objects = []
-        for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
-            print('Initializing game number %s' % (game_number + 1))
-            regular_season_game_objects.append(gameScripts.NBAGameTeam(game_log, initialize_stat_classes=True))
-        return regular_season_game_objects
 
     @cached_property
     def current_league_object(self):
