@@ -77,7 +77,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         if initialize_game_objects:
             # Cache game objects. a is unused
             # noinspection PyUnusedLocal
-            a = self.team_regular_season_game_objects
+            a = self.regular_season_game_objects
 
     def __del__(self):
         for player_object in self.current_players_objects:
@@ -147,7 +147,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         return int(self.team_info.info()[0]['MAX_YEAR'])
 
     @cached_property
-    def team_regular_season_game_objects(self):
+    def regular_season_game_objects(self):
         """
 
         :return:

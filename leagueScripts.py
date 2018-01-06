@@ -143,7 +143,7 @@ class NBALeague(object):
                             print('Initializing players game objects for %s object..' % player_object.name)
                             # Cache game objects. a is unused
                             # noinspection PyUnusedLocal
-                            a = player_object.player_regular_season_game_objects
+                            a = player_object.regular_season_game_objects
                 self.team_objects_list.append(team_object)
             if initialize_player_objects:
                 self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
