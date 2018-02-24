@@ -146,6 +146,8 @@ class NBALeague(object):
             if initialize_player_objects:
                 self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
 
+        self.date = time.ctime()
+
     def __del__(self):
         for team_object in self.team_objects_list:
             del team_object
@@ -568,8 +570,7 @@ class NBALeague(object):
 
 
 if __name__ == "__main__":
-    # TODO - Test why 2017 doesn't work
-    for year in range(2016, 2012, -1):
+    for year in range(2017, 2012, -1):
         league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
                                 initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
         league_year.pickle_league_object()
