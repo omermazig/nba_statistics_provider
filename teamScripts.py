@@ -73,10 +73,6 @@ class NBATeam(generalStatsScripts.NBAStatObject):
         super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
                                       initialize_game_objects=initialize_game_objects)
 
-    def __del__(self):
-        for player_object in self.current_players_objects:
-            del player_object
-
     @property
     def _object_indicator(self):
         return "team"

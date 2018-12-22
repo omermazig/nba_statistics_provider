@@ -148,12 +148,6 @@ class NBALeague(object):
 
         self.date = time.ctime()
 
-    def __del__(self):
-        for team_object in self.team_objects_list:
-            del team_object
-        for player_with_no_team_object in self._players_not_on_team_objects_list:
-            del player_with_no_team_object
-
     @property
     def players_on_teams_objects_list(self):
         """
