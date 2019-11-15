@@ -542,6 +542,7 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
+        os.makedirs(os.path.dirname(utilsScripts.pickles_folder_path), exist_ok=True)
         with open(self.league_object_pickle_path, 'wb') as file_to_write_to:
             print('Updating pickle...')
             pickle.dump(self, file_to_write_to)
