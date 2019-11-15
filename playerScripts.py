@@ -887,7 +887,9 @@ if __name__ == "__main__":
     selected_season = '2015-16'
     for player_name in players_names_list:
         nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
+        print(f"Print {nba_player.name} shooting info")
         nba_player.print_shooting_info()
+        print(f"Print {nba_player.name} passing info")
         nba_player.print_passing_info()
 
         # national_tv_stats = nba_player.get_national_tv_all_time_per_game_stats()
