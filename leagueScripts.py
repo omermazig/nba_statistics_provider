@@ -565,6 +565,8 @@ class NBALeague(object):
 
 if __name__ == "__main__":
     for year in range(2019, 2012, -1):
-        league_year = NBALeague(initialize_stat_classes=True, initialize_player_objects=True,
-                                initialize_team_objects=True, season=goldsberry.apiconvertor.nba_season(year))
+        league_year = NBALeague(initialize_stat_classes=True,
+                                initialize_player_objects=True,
+                                initialize_team_objects=True,
+                                season=goldsberry.apiconvertor.nba_season(year))
         league_year.pickle_league_object()
