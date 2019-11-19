@@ -371,7 +371,6 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, (float, float))]
         """
-        raise Exception("Fix. Not Working!!!!") # TODO
         print('Filtering out players with not enough shot attempts...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_fga_outside_10_feet_limit()]
