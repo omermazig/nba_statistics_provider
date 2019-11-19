@@ -721,12 +721,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_made(), key=lambda x: x["FREQUENCY"])
         return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
 
-    def get_team_net_rtg_on_off_court(self):
-        """
-
-        :return: The player's current team's net rating when he's ON and OFF the court
-        :rtype: tuple(float, float)
-        """
+    def _get_team_advanced_stats_with_player_on_and_off_court(self):
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
@@ -734,6 +729,17 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                                     x['VS_PLAYER_ID'] == self.id]
         team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
                                                      x['VS_PLAYER_ID'] == self.id]
+        return team_advanced_stats_with_player_on_court, \
+            team_advanced_stats_with_player_off_court
+
+    def get_team_net_rtg_on_off_court(self):
+        """
+
+        :return: The player's current team's net rating when he's ON and OFF the court
+        :rtype: tuple(float, float)
+        """
+        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
+            self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['NET_RATING'], \
                    team_advanced_stats_with_player_off_court[0]['NET_RATING']
@@ -746,13 +752,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: The player's current team's offensive rating when he's ON and OFF the court
         :rtype: tuple(float, float)
         """
-        if self.current_team_object is None:
-            raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
-                player_name=self.name))
-        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
-                                                    x['VS_PLAYER_ID'] == self.id]
-        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
-                                                     x['VS_PLAYER_ID'] == self.id]
+        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
+            self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['OFF_RATING'], \
                    team_advanced_stats_with_player_off_court[0]['OFF_RATING']
@@ -765,13 +766,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: The player's current team's defensive rating when he's ON and OFF the court
         :rtype: tuple(float, float)
         """
-        if self.current_team_object is None:
-            raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
-                player_name=self.name))
-        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
-                                                    x['VS_PLAYER_ID'] == self.id]
-        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
-                                                     x['VS_PLAYER_ID'] == self.id]
+        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
+            self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['DEF_RATING'], \
                    team_advanced_stats_with_player_off_court[0]['DEF_RATING']
