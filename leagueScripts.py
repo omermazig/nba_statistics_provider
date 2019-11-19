@@ -121,7 +121,7 @@ class NBALeague(object):
                 print("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
-            for team_name, team_id in teamScripts.teams_id_dict.items():
+            for _, team_id in teamScripts.teams_id_dict.items():
                 time.sleep(0.1)
                 team_object = teamScripts.NBATeam(team_id, season=self.season,
                                                   initialize_game_objects=initialize_game_objects)
