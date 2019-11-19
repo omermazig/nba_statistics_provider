@@ -257,9 +257,9 @@ class NBALeague(object):
         :rtype: list[dict]
         """
         league_all_shooters_lineups_dicts = []
-        for all_shooters_lineups_dict_for_a_team in [
-            team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit) for team_object in
-                self.team_objects_list]:
+        for all_shooters_lineups_dict_for_a_team in \
+                [team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit) for team_object in
+                 self.team_objects_list]:
             league_all_shooters_lineups_dicts += all_shooters_lineups_dict_for_a_team
         return league_all_shooters_lineups_dicts
 
