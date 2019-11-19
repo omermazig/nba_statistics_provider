@@ -347,7 +347,8 @@ class NBALeague(object):
         :rtype: list[(string, (float, float))]
         """
         print('Filtering out players with not enough minutes...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+        # TODO - Figure out how to add tyreke to that lise
+        filtered_player_objects_list = [my_player_object for my_player_object in self.players_on_teams_objects_list if
                                         my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
 
         print('Getting relevant data...')
