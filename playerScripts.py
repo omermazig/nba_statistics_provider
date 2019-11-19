@@ -140,6 +140,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         elif num_of_matching_dicts == 1:
             return self._players_all_stats_dicts[0]['TEAM_ID']
         else:
+            # In case of multiple teams, last stat dict is the TOTAL one and has team_id=0, so this is necessary
             return [career_stats_dict for career_stats_dict in self._players_all_stats_dicts if
                     career_stats_dict['TEAM_ID']][-1]['TEAM_ID']
 
