@@ -232,8 +232,8 @@ class NBAStatObject(object):
         """
 
         :return: tuple of:
-        The diff in EFG% between uncontested shots and contested shots
-        and the % of all shots outside 10 feet that were uncontested.
+         - The diff in EFG% between uncontested shots and contested shots
+         - The % of all shots outside 10 feet that were uncontested.
         :rtype: tuple(float, float)
         """
         efg_on_uncontested_shots_outside_10_feet, number_of_uncontested_shots_outside_10_feet = \
