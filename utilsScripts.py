@@ -419,7 +419,7 @@ def _get_list_of_players_ids_from_lineup_dict(lineup_dict_to_convert):
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
-    return map(int, lineup_dict_to_convert['GROUP_ID'].split(' - '))
+    return [int(player_id) for player_id in lineup_dict_to_convert['GROUP_ID'].split('-') if player_id]
 
 
 def _get_list_of_players_ids_from_players_object_list(players_object_list):
@@ -430,7 +430,7 @@ def _get_list_of_players_ids_from_players_object_list(players_object_list):
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
-    return map(lambda player_object: player_object.id, players_object_list)
+    return [player_object.id for player_object in players_object_list]
 
 
 def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, check_all_players):
@@ -567,7 +567,7 @@ def print_field_goal_percentage_in_a_given_condition(name, condition_func, condi
             function_result = "{0:+.2f}%".format(function_result * 100)
         else:
             function_result = "{0:.2f}%".format(function_result * 100)
-    print("{player_name} {condition} - {function_result} - on {number_of_shots} shots".format(
+    print("{player_name} {condition} - {function_result} : on {number_of_shots} shots".format(
         player_name=name,
         condition=condition_string,
         function_result=function_result,
