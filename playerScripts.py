@@ -881,7 +881,7 @@ if __name__ == "__main__":
         # 'paul_pierce',
         # 'carmelo_anthony'
     ]
-    selected_season = '2015-16'
+    selected_season = '2020-21'
     for player_name in players_names_list:
         nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
         print(f"Print {nba_player.name} shooting info")

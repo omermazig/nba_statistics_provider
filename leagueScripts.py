@@ -564,11 +564,14 @@ class NBALeague(object):
 
 
 def main():
-    for year in range(2019, 2012, -1):
-        current_league_year = NBALeague.get_cached_league_object(season=str(year))
+    for year in range(2020, 2012, -1):
+        try:
+            current_league_year = NBALeague.get_cached_league_object(season=str(year))
+        except FileNotFoundError:
+            current_league_year = None
         # Check if there's a need to update the league's object
         already_in_playoffs_date = datetime.datetime(year + 1, 4, 26)
-        if current_league_year.date < already_in_playoffs_date:
+        if not current_league_year or current_league_year.date < already_in_playoffs_date:
             league_year = NBALeague(initialize_stat_classes=True,
                                     initialize_player_objects=True,
                                     initialize_team_objects=True,
