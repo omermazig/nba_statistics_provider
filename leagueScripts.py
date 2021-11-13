@@ -101,13 +101,14 @@ class NBALeagues(object):
         return passed_function_results_by_seasons_ordered_dict
 
 
-class NBALeague(object):
+class NBALeague(utilsScripts.Loggable):
     """
     An object that represent a single nba season.
     """
 
     def __init__(self, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
                  initialize_team_objects=False, initialize_player_objects=False, initialize_game_objects=False):
+        super().__init__()
         self.season = season
         self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         self.team_objects_list = []
@@ -115,11 +116,11 @@ class NBALeague(object):
         self._players_not_on_team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
-            print('Initializing league playtypes...')
+            self.logger.info('Initializing league playtypes...')
             try:
                 self.playtype = PlayTypeLeagueAverage()
             except Exception as e:
-                print("Couldn't initialize playtype data - %s" % e)
+                self.logger.info("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
             for team_id in teamScripts.teams_id_dict.values():
@@ -137,7 +138,7 @@ class NBALeague(object):
                         # noinspection PyUnusedLocal
                         a = player_object.stats_dict
                         if initialize_game_objects:
-                            print('Initializing players game objects for %s object..' % player_object.name)
+                            self.logger.info('Initializing players game objects for %s object..' % player_object.name)
                             # Cache game objects. a is unused
                             # noinspection PyUnusedLocal
                             a = player_object.regular_season_game_objects
@@ -177,7 +178,7 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
-        print('Initializing league stat classes...')
+        self.logger.info('Initializing league stat classes...')
         public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.league) if
                                      not stat_class1.startswith('_')]
 
@@ -192,7 +193,7 @@ class NBALeague(object):
         :return:
         :rtype: None
         """
-        print('Initializing players with no current team...')
+        self.logger.info('Initializing players with no current team...')
         players_not_on_team_dicts_list = [player_dict for player_dict in
                                           goldsberry.PlayerList(season=self.season).players() if
                                           not player_dict['TEAM_ID']]
@@ -288,15 +289,15 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, float)]
         """
-        print('Filtering out players with not enough minutes...')
+        self.logger.info('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_minutes_limit() and
                                         my_player_object.is_single_team_player()]
 
-        print('Getting relevant data...')
+        self.logger.info('Getting relevant data...')
         players_name_and_result = []
         for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 my_team_object = my_player_object.current_team_object
                 games_split = my_player_object.get_over_minutes_limit_games_per_36_stats_compared_to_other_games()
@@ -310,7 +311,7 @@ class NBALeague(object):
                                                     diff))
             except PlayerHasMoreThenOneTeam:
                 pass
-        print('Sorting...')
+        self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[-1], reverse=True)
         return players_name_and_result
 
@@ -321,14 +322,14 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, (float, int))]
         """
-        print('Filtering out players with not enough assists...')
+        self.logger.info('Filtering out players with not enough assists...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_assists_limit()]
 
-        print('Getting relevant data...')
+        self.logger.info('Getting relevant data...')
         players_name_and_result = []
         for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 diff_in_teammates_efg_percentage = \
                     my_player_object.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes()
@@ -336,7 +337,7 @@ class NBALeague(object):
                                                 diff_in_teammates_efg_percentage))
             except PlayerHasMoreThenOneTeam:
                 pass
-        print('Sorting...')
+        self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0], reverse=True)
         return players_name_and_result
 
@@ -347,21 +348,46 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, (float, float))]
         """
-        print('Filtering out players with not enough minutes...')
+        self.logger.info('Filtering out players with not enough minutes...')
         # TODO - Figure out how to add tyreke to that lise
         filtered_player_objects_list = [my_player_object for my_player_object in self.players_on_teams_objects_list if
                                         my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
 
-        print('Getting relevant data...')
+        self.logger.info('Getting relevant data...')
         players_name_and_result = []
         for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
             try:
                 players_name_and_result.append((my_player_object.name,
                                                 my_player_object.get_team_net_rtg_on_off_court()))
             except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
                 pass
-        print('Sorting...')
+        self.logger.info('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
+        return players_name_and_result
+
+    def get_players_sorted_by_team_def_rtg_on_off_court_diff(self):
+        """
+        Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's def rating was
+        when they were on the court (rather then not)
+        :return:
+        :rtype: list[(string, (float, float))]
+        """
+        self.logger.info('Filtering out players with not enough minutes...')
+        # TODO - Figure out how to add tyreke to that lise
+        filtered_player_objects_list = [my_player_object for my_player_object in self.players_on_teams_objects_list if
+                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
+
+        self.logger.info('Getting relevant data...')
+        players_name_and_result = []
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            try:
+                players_name_and_result.append((my_player_object.name,
+                                                my_player_object.get_team_def_rtg_on_off_court()))
+            except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
+                pass
+        self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
         return players_name_and_result
 
@@ -372,19 +398,19 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, (float, float))]
         """
-        print('Filtering out players with not enough shot attempts...')
+        self.logger.info('Filtering out players with not enough shot attempts...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_fga_outside_10_feet_limit()]
 
-        print('Getting relevant data...')
+        self.logger.info('Getting relevant data...')
         players_name_and_result_list = []
 
         for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
             diff_in_teammates_efg_percentage = \
                 my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
             players_name_and_result_list.append((my_player_object.name, diff_in_teammates_efg_percentage))
-        print('Sorting...')
+        self.logger.info('Sorting...')
         players_name_and_result_list.sort(key=lambda x: x[1][0], reverse=True)
         return players_name_and_result_list
 
@@ -395,19 +421,19 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, (float, float))]
         """
-        print('Filtering out players with not enough shot attempts...')
+        self.logger.info('Filtering out players with not enough shot attempts...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
                                         my_player_object.is_player_over_fga_outside_10_feet_limit(limit=100)]
 
-        print('Getting relevant data...')
+        self.logger.info('Getting relevant data...')
         players_name_and_result = []
 
         for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            print('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
             diff_in_teammates_efg_percentage = \
                 my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
             players_name_and_result.append((my_player_object.name, diff_in_teammates_efg_percentage))
-        print('Sorting...')
+        self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
         return players_name_and_result
 
@@ -418,7 +444,7 @@ class NBALeague(object):
         :return:
         :rtype: list[(string, float)]
         """
-        print('Getting aPER data...')
+        self.logger.info('Getting aPER data...')
         players_name_and_result = []
         aPer_sum = 0
         # Getting qualifying players for stat - players with a team that are on pace to play at least 500 minutes
@@ -427,18 +453,18 @@ class NBALeague(object):
         num_of_players_on_teams = len(qualifying_players)
 
         for i, my_player_object in enumerate(qualifying_players, start=1):
-            print('Player %s/%s' % (i, num_of_players_on_teams))
+            self.logger.info('Player %s/%s' % (i, num_of_players_on_teams))
             aPER = my_player_object.get_aPER()
             aPer_sum += aPER
             players_name_and_result.append((my_player_object.name, aPER))
 
-        print('Normalizing aPER to PER on list...')
+        self.logger.info('Normalizing aPER to PER on list...')
         aPer_average = aPer_sum / num_of_players_on_teams
         for i in range(len(players_name_and_result)):
             per = players_name_and_result[i][1] * (15 / aPer_average)
             players_name_and_result[i] = (players_name_and_result[i][0], per)
 
-        print('Sorting...')
+        self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1], reverse=True)
         return players_name_and_result
 
@@ -534,7 +560,7 @@ class NBALeague(object):
         :rtype: None
         """
         for k, v in self.playtype.__dict__.items():
-            print('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
+            self.logger.info('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
 
     def pickle_league_object(self):
         """
@@ -544,7 +570,7 @@ class NBALeague(object):
         """
         os.makedirs(utilsScripts.pickles_folder_path, exist_ok=True)
         with open(self.league_object_pickle_path, 'wb') as file_to_write_to:
-            print('Updating pickle...')
+            self.logger.info('Updating pickle...')
             pickle.dump(self, file_to_write_to)
 
     @staticmethod
@@ -564,7 +590,7 @@ class NBALeague(object):
 
 
 def main():
-    for year in range(2020, 2012, -1):
+    for year in range(2021, 2012, -1):
         try:
             current_league_year = NBALeague.get_cached_league_object(season=str(year))
         except FileNotFoundError:

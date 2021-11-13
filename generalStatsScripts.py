@@ -14,7 +14,7 @@ import gameScripts
 import utilsScripts
 
 
-class NBAStatObject(object):
+class NBAStatObject(utilsScripts.Loggable):
     """
     An abstract class that gathers functions that uses elements that are common for a number of object,
     like player or team
@@ -22,6 +22,7 @@ class NBAStatObject(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, season, initialize_stat_classes, initialize_game_objects):
+        super().__init__()
         self.season = season
         """:type : str"""
         if initialize_stat_classes:
@@ -110,7 +111,7 @@ class NBAStatObject(object):
         """
         regular_season_game_objects = []
         for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
-            print('Initializing game number %s' % (game_number + 1))
+            self.logger.info('Initializing game number %s' % (game_number + 1))
             # TODO - Make NBAGame specefically NBATeam/NBAPlayer
             regular_season_game_objects.append(gameScripts.NBAGame(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
@@ -156,7 +157,7 @@ class NBAStatObject(object):
         :return:
         :rtype: None
         """
-        print('Initializing stat classes for %s object..' % self.name)
+        self.logger.info('Initializing stat classes for %s object..' % self.name)
         goldsberry_object = getattr(goldsberry, self._object_indicator)
         public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry_object) if
                                      not stat_class1.startswith('_')]
@@ -165,8 +166,8 @@ class NBAStatObject(object):
             try:
                 self._initialize_stat_class(stat_class_name)
             except ValueError:
-                print("    Could not initialize %s - Maybe it wasn't instituted in %s" % (
-                    stat_class_name, self.season))
+                self.logger.warning("Could not initialize %s - Maybe it wasn't instituted in %s" % (stat_class_name,
+                                                                                                    self.season))
 
     def open_web_stat_page(self):
         """
@@ -247,7 +248,7 @@ class NBAStatObject(object):
                 return 0, 100
             diff_in_efg = efg_on_uncontested_shots_outside_10_feet - efg_on_contested_shots_outside_10_feet
             percentage_of_contested_shots = number_of_uncontested_shots_outside_10_feet / (
-                number_of_uncontested_shots_outside_10_feet + number_of_contested_shots_outside_10_feet)
+                    number_of_uncontested_shots_outside_10_feet + number_of_contested_shots_outside_10_feet)
             return diff_in_efg, percentage_of_contested_shots
 
     def get_all_time_game_logs(self):
@@ -329,3 +330,31 @@ class NBAStatObject(object):
         :rtype: float
         """
         return utilsScripts.get_num_of_possessions_from_stat_dict(self.stats_dict)
+
+    def print_field_goal_percentage_in_a_given_condition(self, name, condition_func, condition_string,
+                                                         is_percentage_diff=False):
+        """
+
+        :param name: Name of the player/team
+        :type name: str
+        :param condition_func: The function that returns the printed results.
+        Have to return a tuple of two floats - The resulted percentage and the number of shots
+        :type condition_func: lambda
+        :param condition_string: The string that will declare what the numbers meaning is
+        :type condition_string: str
+        :param is_percentage_diff: Whether the result is an actual percentage or a diff between two percentage values
+        :type is_percentage_diff: bool
+        :return:
+        :rtype: None
+        """
+        function_result, number_of_shots = condition_func()
+        if type(function_result) is float and -1 <= function_result <= 1:
+            if is_percentage_diff:
+                function_result = "{0:+.2f}%".format(function_result * 100)
+            else:
+                function_result = "{0:.2f}%".format(function_result * 100)
+        self.logger.info("{player_name} {condition} - {function_result} : on {number_of_shots} shots".format(
+            player_name=name,
+            condition=condition_string,
+            function_result=function_result,
+            number_of_shots=number_of_shots))

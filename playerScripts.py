@@ -169,7 +169,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         represents a team (or TOTAL, if the player had more then one)
         :rtype: list[dict]
         """
-        print("Initializes all of %s stats dicts" % self.name)
+        self.logger.info("Initializes all of %s stats dicts" % self.name)
         self._initialize_stat_class_if_not_initialized('career_stats')
         filtered_list_of_player_stats_dicts = [stats_dict for stats_dict in
                                                self.career_stats.seasons_regular() if
@@ -230,7 +230,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         regular_season_game_objects = []
         for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
-            print('Initializing game number %s' % (game_number + 1))
+            self.logger.info('Initializing game number %s' % (game_number + 1))
             regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
 
@@ -633,25 +633,24 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         efg_on_uncontested = self.get_efg_percentage_on_uncontested_shots_outside_10_feet
         efg_right_side = self.get_efg_percentage_from_right_side
         efg_left_side = self.get_efg_percentage_from_left_side
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_after_makes,
-                                                                      "%EFG after a make")
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_after_misses,
-                                                                      "%EFG after a miss")
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_on_contested,
-                                                                      "%EFG on contested shot outside 10 feet")
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_on_uncontested,
-                                                                      "%EFG on uncontested shot outside 10 feet")
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_right_side,
-                                                                      "%EFG on shots from the right side")
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      efg_left_side,
-                                                                      "%EFG on shots from the left side")
-        print('')
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_after_makes,
+                                                              "%EFG after a make")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_after_misses,
+                                                              "%EFG after a miss")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_on_contested,
+                                                              "%EFG on contested shot outside 10 feet")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_on_uncontested,
+                                                              "%EFG on uncontested shot outside 10 feet")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_right_side,
+                                                              "%EFG on shots from the right side")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              efg_left_side,
+                                                              "%EFG on shots from the left side")
 
     def print_passing_info(self):
         """
@@ -660,10 +659,10 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: None
         """
         diff_in_efg = self.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes
-        utilsScripts.print_field_goal_percentage_in_a_given_condition(self.name,
-                                                                      diff_in_efg,
-                                                                      "- change in teammates %EFG "
-                                                                      "after a pass from a player")
+        self.print_field_goal_percentage_in_a_given_condition(self.name,
+                                                              diff_in_efg,
+                                                              "- change in teammates %EFG "
+                                                              "after a pass from a player")
 
     def get_most_frequent_passer_to_player(self):
         """
@@ -672,7 +671,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: dict
         """
         if not self.passing_dashboard.passes_received():
-            print('{player_name} does not have any FG from passes. returning None...'.format(
+            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
             return None
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_received(), key=lambda x: x["FREQUENCY"])
@@ -685,7 +684,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: dict
         """
         if not self.passing_dashboard.passes_received():
-            print('{player_name} does not have any FG from passes. returning None...'.format(
+            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
             return None
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_made(),
@@ -700,7 +699,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: dict
         """
         if not self.passing_dashboard.passes_received():
-            print('{player_name} does not have any FG from passes. returning None...'.format(
+            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
             return None
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_received(),
@@ -715,7 +714,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: dict
         """
         if not self.passing_dashboard.passes_received():
-            print('{player_name} does not have any FG from passes. returning None...'.format(
+            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
             return None
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_made(), key=lambda x: x["FREQUENCY"])
@@ -730,7 +729,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
                                                      x['VS_PLAYER_ID'] == self.id]
         return team_advanced_stats_with_player_on_court, \
-            team_advanced_stats_with_player_off_court
+               team_advanced_stats_with_player_off_court
 
     def get_team_net_rtg_on_off_court(self):
         """
@@ -884,9 +883,9 @@ if __name__ == "__main__":
     selected_season = '2020-21'
     for player_name in players_names_list:
         nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
-        print(f"Print {nba_player.name} shooting info")
+        nba_player.logger.info(f"Print {nba_player.name} shooting info")
         nba_player.print_shooting_info()
-        print(f"Print {nba_player.name} passing info")
+        nba_player.logger.info(f"Print {nba_player.name} passing info")
         nba_player.print_passing_info()
 
         # national_tv_stats = nba_player.get_national_tv_all_time_per_game_stats()
