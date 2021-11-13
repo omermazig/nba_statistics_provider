@@ -120,7 +120,7 @@ class NBALeague(utilsScripts.Loggable):
             try:
                 self.playtype = PlayTypeLeagueAverage()
             except Exception as e:
-                self.logger.info("Couldn't initialize playtype data - %s" % e)
+                self.logger.warning("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
             for team_id in teamScripts.teams_id_dict.values():
