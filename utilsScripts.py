@@ -6,6 +6,7 @@ import logging
 import os
 import csv
 import collections
+import sys
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -55,8 +56,9 @@ class Loggable:
     """
     def __init__(self):
         logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S')
+                            format='%(asctime)s.%(msecs)03d %(levelname)s - %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            handlers=[logging.StreamHandler(sys.stdout)])
         self.logger = logging.getLogger(__name__)
 
 
