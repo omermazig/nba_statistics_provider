@@ -123,7 +123,7 @@ class NBALeague(utilsScripts.Loggable):
                 self.logger.warning("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
-            for team_id in teamScripts.teams_id_dict.values():
+            for i, team_id in enumerate(teamScripts.teams_id_dict.values(), start=1):
                 team_object = teamScripts.NBATeam(team_id, season=self.season,
                                                   initialize_game_objects=initialize_game_objects)
                 team_object.current_league_object = self
@@ -132,7 +132,6 @@ class NBALeague(utilsScripts.Loggable):
                 a = team_object.stats_dict
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
-                        time.sleep(0.1)
                         player_object.initialize_stat_classes()
                         # Cache player_stats_dict objects. a is unused
                         # noinspection PyUnusedLocal
@@ -143,6 +142,7 @@ class NBALeague(utilsScripts.Loggable):
                             # noinspection PyUnusedLocal
                             a = player_object.regular_season_game_objects
                 self.team_objects_list.append(team_object)
+                self.logger.info(f'Finished {i}/{len(teamScripts.teams_id_dict.values())} of the teams...')
             if initialize_player_objects:
                 self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
 
