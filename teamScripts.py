@@ -173,7 +173,7 @@ class NBATeam(generalStatsScripts.NBAStatObject):
                 nba_player_object.current_team_object = self
                 players_objects_list.append(nba_player_object)
             except playerScripts.NoSuchPlayer:
-                print(
+                self.logger.warning(
                     "{player_name} was not found in leagues players, even though he's on the team roster".format(
                         player_name=player_name))
             except Exception as e:
