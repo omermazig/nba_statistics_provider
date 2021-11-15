@@ -142,7 +142,9 @@ class NBALeague(utilsScripts.Loggable):
                             # noinspection PyUnusedLocal
                             a = player_object.regular_season_game_objects
                 self.team_objects_list.append(team_object)
-                self.logger.info(f'Finished {i}/{len(teamScripts.teams_id_dict.values())} of the teams...')
+                self.logger.info(f'---------------'
+                                 f'Finished {i}/{len(teamScripts.teams_id_dict.values())} of the teams... '
+                                 f'---------------')
             if initialize_player_objects:
                 self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
 
