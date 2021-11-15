@@ -165,9 +165,10 @@ class NBAStatObject(utilsScripts.Loggable):
         for stat_class_name in public_stat_classes_names:
             try:
                 self._initialize_stat_class(stat_class_name)
-            except ValueError:
+            except ValueError as e:
                 self.logger.warning("Could not initialize %s - Maybe it wasn't instituted in %s" % (stat_class_name,
-                                                                                                    self.season))
+                                                                                                self.season))
+                self.logger.error(e, exc_info=True)
 
     def open_web_stat_page(self):
         """
