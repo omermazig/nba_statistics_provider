@@ -56,7 +56,7 @@ class Loggable:
     """
     import logging
 
-    class CustomFormatter(logging.Formatter):
+    class __CustomFormatter(logging.Formatter):
         grey = "\x1b[38;21m"
         yellow = "\x1b[33;21m"
         red = "\x1b[31;21m"
@@ -79,7 +79,7 @@ class Loggable:
 
     def __init__(self):
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(self.CustomFormatter())
+        handler.setFormatter(self.__CustomFormatter())
         logging.basicConfig(level=logging.INFO,
                             datefmt='%Y-%m-%d %H:%M:%S',
                             handlers=[handler])
