@@ -1,7 +1,7 @@
 import abc
 
 import utilsScripts
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasMoreThenOneTeam
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasMoreThenOneTeam, PlayerHasNoTeam
 
 
 class PlayersContainer:
@@ -155,4 +155,52 @@ class PlayersContainer:
             players_name_and_result.append((my_player_object.name, diff_in_teammates_efg_percentage))
         self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
+        return players_name_and_result
+
+    def get_players_sorted_by_team_net_rtg_on_off_court_diff(self):
+        """
+        Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's net rating was
+        when they were on the court (rather then not)
+        :return:
+        :rtype: list[(string, (float, float))]
+        """
+        self.logger.info('Filtering out players with not enough minutes...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
+                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
+
+        self.logger.info('Getting relevant data...')
+        players_name_and_result = []
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            try:
+                players_name_and_result.append((my_player_object.name,
+                                                my_player_object.get_team_net_rtg_on_off_court()))
+            except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
+                pass
+        self.logger.info('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
+        return players_name_and_result
+
+    def get_players_sorted_by_team_def_rtg_on_off_court_diff(self):
+        """
+        Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's def rating was
+        when they were on the court (rather then not)
+        :return:
+        :rtype: list[(string, (float, float))]
+        """
+        self.logger.info('Filtering out players with not enough minutes...')
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
+                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
+
+        self.logger.info('Getting relevant data...')
+        players_name_and_result = []
+        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
+            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
+            try:
+                players_name_and_result.append((my_player_object.name,
+                                                my_player_object.get_team_def_rtg_on_off_court()))
+            except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
+                pass
+        self.logger.info('Sorting...')
+        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
         return players_name_and_result
