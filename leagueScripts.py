@@ -540,7 +540,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :rtype: None
         """
         for k, v in self.playtype.__dict__.items():
-            self.logger.info('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
+            print('{play_type_to_print} - {ppp_to_print:.2f}'.format(play_type_to_print=k, ppp_to_print=v))
 
     def pickle_league_object(self):
         """
