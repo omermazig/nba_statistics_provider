@@ -332,7 +332,8 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         return utilsScripts.get_num_of_possessions_from_stat_dict(self.stats_dict)
 
-    def print_field_goal_percentage_in_a_given_condition(self, name, condition_func, condition_string,
+    @staticmethod
+    def print_field_goal_percentage_in_a_given_condition(name, condition_func, condition_string,
                                                          is_percentage_diff=False):
         """
 
@@ -354,7 +355,7 @@ class NBAStatObject(utilsScripts.Loggable):
                 function_result = "{0:+.2f}%".format(function_result * 100)
             else:
                 function_result = "{0:.2f}%".format(function_result * 100)
-        self.logger.info("{player_name} {condition} - {function_result} : on {number_of_shots} shots".format(
+        print("{player_name} {condition} - {function_result} : on {number_of_shots} shots".format(
             player_name=name,
             condition=condition_string,
             function_result=function_result,
