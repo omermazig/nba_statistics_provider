@@ -271,8 +271,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :rtype: list[(string, (float, float))]
         """
         self.logger.info('Filtering out players with not enough minutes...')
-        # TODO - Figure out how to add tyreke to that lise
-        filtered_player_objects_list = [my_player_object for my_player_object in self.players_on_teams_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
 
         self.logger.info('Getting relevant data...')
@@ -296,8 +295,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :rtype: list[(string, (float, float))]
         """
         self.logger.info('Filtering out players with not enough minutes...')
-        # TODO - Figure out how to add tyreke to that lise
-        filtered_player_objects_list = [my_player_object for my_player_object in self.players_on_teams_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
 
         self.logger.info('Getting relevant data...')
