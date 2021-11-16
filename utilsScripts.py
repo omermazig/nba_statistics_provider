@@ -55,7 +55,7 @@ class Loggable:
     """
     Class that can log
     """
-    logger = None
+    logger: logging.Logger = None
 
     class __CustomFormatter(logging.Formatter):
         grey = "\x1b[38;21m"
