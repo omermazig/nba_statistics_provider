@@ -7,6 +7,7 @@ import os
 import csv
 import collections
 import sys
+import logging
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -54,7 +55,7 @@ class Loggable:
     """
     Class that can log
     """
-    import logging
+    logger = None
 
     class __CustomFormatter(logging.Formatter):
         grey = "\x1b[38;21m"
