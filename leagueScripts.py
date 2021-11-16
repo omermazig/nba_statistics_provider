@@ -163,7 +163,7 @@ class NBALeague(utilsScripts.Loggable):
         return players_on_teams_objects_list
 
     @property
-    def player_objects_list(self):
+    def current_players_objects(self):
         """
         A list of generated player objects for all of the players for the given season.
         This property is compiled by adding all of the players that are on teams (Initialized under self.team_objects
@@ -219,7 +219,7 @@ class NBALeague(utilsScripts.Loggable):
         :return: The desired player's object
         :rtype: playerScripts.NBAPlayer
         """
-        filtered_player_objects_list = [player_object for player_object in self.player_objects_list if
+        filtered_player_objects_list = [player_object for player_object in self.current_players_objects if
                                         player_name in player_object.name]
         filtered_player_objects_list_length = len(filtered_player_objects_list)
         if filtered_player_objects_list_length == 0:
@@ -292,7 +292,7 @@ class NBALeague(utilsScripts.Loggable):
         :rtype: list[(string, float)]
         """
         self.logger.info('Filtering out players with not enough minutes...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_minutes_limit() and
                                         my_player_object.is_single_team_player()]
 
@@ -325,7 +325,7 @@ class NBALeague(utilsScripts.Loggable):
         :rtype: list[(string, (float, int))]
         """
         self.logger.info('Filtering out players with not enough assists...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_assists_limit()]
 
         self.logger.info('Getting relevant data...')
@@ -401,7 +401,7 @@ class NBALeague(utilsScripts.Loggable):
         :rtype: list[(string, (float, float))]
         """
         self.logger.info('Filtering out players with not enough shot attempts...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_fga_outside_10_feet_limit()]
 
         self.logger.info('Getting relevant data...')
@@ -424,7 +424,7 @@ class NBALeague(utilsScripts.Loggable):
         :rtype: list[(string, (float, float))]
         """
         self.logger.info('Filtering out players with not enough shot attempts...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.player_objects_list if
+        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
                                         my_player_object.is_player_over_fga_outside_10_feet_limit(limit=100)]
 
         self.logger.info('Getting relevant data...')
