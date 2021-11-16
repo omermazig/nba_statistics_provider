@@ -322,7 +322,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return False
 
-    def is_player_over_minutes_limit(self, limit=800, only_recent_team=False):
+    def is_player_over_minutes_limit(self, limit, only_recent_team=False):
         """
 
         :param limit:

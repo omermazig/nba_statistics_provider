@@ -53,7 +53,7 @@ class PlayersContainer:
         else:
             return filtered_player_objects_list[0]
 
-    def get_players_sorted_by_diff_in_per_between_minutes_played(self):
+    def get_players_sorted_by_diff_in_per_between_minutes_played(self, minutes_limit=800):
         """
 
         :return:
@@ -61,7 +61,7 @@ class PlayersContainer:
         """
         self.logger.info('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_minutes_limit() and
+                                        my_player_object.is_player_over_minutes_limit(minutes_limit) and
                                         my_player_object.is_single_team_player()]
 
         self.logger.info('Getting relevant data...')
@@ -157,7 +157,7 @@ class PlayersContainer:
         players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
         return players_name_and_result
 
-    def get_players_sorted_by_team_net_rtg_on_off_court_diff(self):
+    def get_players_sorted_by_team_net_rtg_on_off_court_diff(self, minutes_limit=800):
         """
         Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's net rating was
         when they were on the court (rather then not)
@@ -166,7 +166,8 @@ class PlayersContainer:
         """
         self.logger.info('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
+                                        my_player_object.is_player_over_minutes_limit(minutes_limit,
+                                                                                      only_recent_team=True)]
 
         self.logger.info('Getting relevant data...')
         players_name_and_result = []
@@ -181,7 +182,7 @@ class PlayersContainer:
         players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
         return players_name_and_result
 
-    def get_players_sorted_by_team_def_rtg_on_off_court_diff(self):
+    def get_players_sorted_by_team_def_rtg_on_off_court_diff(self, minutes_limit=800):
         """
         Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's def rating was
         when they were on the court (rather then not)
@@ -190,7 +191,8 @@ class PlayersContainer:
         """
         self.logger.info('Filtering out players with not enough minutes...')
         filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_minutes_limit(only_recent_team=True)]
+                                        my_player_object.is_player_over_minutes_limit(minutes_limit,
+                                                                                      only_recent_team=True)]
 
         self.logger.info('Getting relevant data...')
         players_name_and_result = []
