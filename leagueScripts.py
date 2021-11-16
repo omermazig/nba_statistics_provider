@@ -263,64 +263,6 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 team_all_shooters_lineups_dicts)
         return league_all_shooters_lineups_dicts
 
-    def get_players_sorted_by_diff_in_per_between_minutes_played(self):
-        """
-
-        :return:
-        :rtype: list[(string, float)]
-        """
-        self.logger.info('Filtering out players with not enough minutes...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_minutes_limit() and
-                                        my_player_object.is_single_team_player()]
-
-        self.logger.info('Getting relevant data...')
-        players_name_and_result = []
-        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
-            try:
-                my_team_object = my_player_object.current_team_object
-                games_split = my_player_object.get_over_minutes_limit_games_per_36_stats_compared_to_other_games()
-                over_limit_stats = games_split['Over 30 minutes']
-                under_limit_stats = games_split['Under 30 minutes']
-                if (over_limit_stats and under_limit_stats) and \
-                        (over_limit_stats['NUM_OF_ITEMS'] > 20 and under_limit_stats['NUM_OF_ITEMS'] > 20):
-                    diff = utilsScripts.get_aPER_from_stat_dict(over_limit_stats, my_team_object) - \
-                           utilsScripts.get_aPER_from_stat_dict(under_limit_stats, my_team_object)
-                    players_name_and_result.append((my_player_object.name,
-                                                    diff))
-            except PlayerHasMoreThenOneTeam:
-                pass
-        self.logger.info('Sorting...')
-        players_name_and_result.sort(key=lambda x: x[-1], reverse=True)
-        return players_name_and_result
-
-    def get_players_sorted_by_diff_in_teammates_efg_percentage_between_shots_from_passes_by_player_to_other_shots(self):
-        """
-        Sort all the players WITH MORE THEN 50 ASSISTS this season, by how much better their teammates shot the ball
-        with them passing to them (rather then not)
-        :return:
-        :rtype: list[(string, (float, int))]
-        """
-        self.logger.info('Filtering out players with not enough assists...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_assists_limit()]
-
-        self.logger.info('Getting relevant data...')
-        players_name_and_result = []
-        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
-            try:
-                diff_in_teammates_efg_percentage = \
-                    my_player_object.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes()
-                players_name_and_result.append((my_player_object.name,
-                                                diff_in_teammates_efg_percentage))
-            except PlayerHasMoreThenOneTeam:
-                pass
-        self.logger.info('Sorting...')
-        players_name_and_result.sort(key=lambda x: x[1][0], reverse=True)
-        return players_name_and_result
-
     def get_players_sorted_by_team_net_rtg_on_off_court_diff(self):
         """
         Sort all the players WITH MORE THEN 800 MINUTES this season, by how much better their team's net rating was
@@ -369,52 +311,6 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 pass
         self.logger.info('Sorting...')
         players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
-        return players_name_and_result
-
-    def get_players_sorted_by_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet(self):
-        """
-        Sort all the players WITH MORE THEN 200 OUTSIDE FGA this season, by how much better their EFG% was on
-        uncontested shots than on contested shots.
-        :return:
-        :rtype: list[(string, (float, float))]
-        """
-        self.logger.info('Filtering out players with not enough shot attempts...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_fga_outside_10_feet_limit()]
-
-        self.logger.info('Getting relevant data...')
-        players_name_and_result_list = []
-
-        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
-            diff_in_teammates_efg_percentage = \
-                my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
-            players_name_and_result_list.append((my_player_object.name, diff_in_teammates_efg_percentage))
-        self.logger.info('Sorting...')
-        players_name_and_result_list.sort(key=lambda x: x[1][0], reverse=True)
-        return players_name_and_result_list
-
-    def get_players_sorted_by_percentage_of_shots_outside_10_feet_that_were_uncontested(self):
-        """
-        Sort all the players WITH MORE THEN 100 OUTSIDE FGA this season, by the percentage of their outside shots which
-        were uncontested.
-        :return:
-        :rtype: list[(string, (float, float))]
-        """
-        self.logger.info('Filtering out players with not enough shot attempts...')
-        filtered_player_objects_list = [my_player_object for my_player_object in self.current_players_objects if
-                                        my_player_object.is_player_over_fga_outside_10_feet_limit(limit=100)]
-
-        self.logger.info('Getting relevant data...')
-        players_name_and_result = []
-
-        for i, my_player_object in enumerate(filtered_player_objects_list, start=1):
-            self.logger.info('Player %s/%s' % (i, len(filtered_player_objects_list)))
-            diff_in_teammates_efg_percentage = \
-                my_player_object.get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet()
-            players_name_and_result.append((my_player_object.name, diff_in_teammates_efg_percentage))
-        self.logger.info('Sorting...')
-        players_name_and_result.sort(key=lambda x: x[1][1], reverse=True)
         return players_name_and_result
 
     # noinspection PyPep8Naming
