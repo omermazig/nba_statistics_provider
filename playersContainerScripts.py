@@ -204,5 +204,5 @@ class PlayersContainer:
             except (PlayerHasMoreThenOneTeam, PlayerHasNoTeam):
                 pass
         self.logger.info('Sorting...')
-        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1], reverse=True)
+        players_name_and_result.sort(key=lambda x: x[1][0] - x[1][1])
         return players_name_and_result
