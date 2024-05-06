@@ -113,7 +113,6 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return:
         :rtype:
         """
-        self._initialize_stat_class_if_not_initialized('season_stats')
         with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Base'):
             return self.season_stats.overall()[0]
 
@@ -124,7 +123,6 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The first year that the object existed
         :rtype: int
         """
-        self._initialize_stat_class_if_not_initialized('year_by_year')
         return int(self.team_info.info()[0]['MIN_YEAR'])
 
     @property
@@ -134,7 +132,6 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The first year that the object existed
         :rtype: int
         """
-        self._initialize_stat_class_if_not_initialized('year_by_year')
         return int(self.team_info.info()[0]['MAX_YEAR'])
 
     @cached_property

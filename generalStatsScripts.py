@@ -5,6 +5,8 @@ import webbrowser
 import abc
 from cached_property import cached_property
 
+from nba_api.stats import endpoints
+
 import goldsberry
 # import used only for type-hinting
 # noinspection PyUnresolvedReferences
@@ -82,6 +84,12 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         pass
 
+    @property
+    @abc.abstractmethod
+    def stat_classes_names(self) -> list[str]:
+        """ The stat classes available for the object """
+        pass
+
     @cached_property
     @abc.abstractmethod
     def stats_dict(self):
@@ -134,22 +142,9 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         return "{name} Object".format(name=self.name)
 
-    def _initialize_stat_class(self, stat_class_name):
-        goldsberry_object = getattr(goldsberry, self._object_indicator)
-        stat_class = getattr(goldsberry_object, stat_class_name)(self.id, self.season)
-        """:type : NbaDataProvider"""
-        setattr(self, stat_class_name, stat_class)
-
-    def _initialize_stat_class_if_not_initialized(self, stat_class_name):
-        """
-        Checks whether a stat class is already initialized, and initializes it if not
-        :param stat_class_name: stat_class name to potentially initialize
-        :type stat_class_name: str
-        :return:
-        :rtype: None
-        """
-        if not hasattr(self, stat_class_name):
-            self._initialize_stat_class(stat_class_name)
+    def _get_stat_class(self, stat_class_table_name, **kwargs):
+        stat_class = getattr(endpoints, stat_class_table_name)(**kwargs)
+        return stat_class
 
     def initialize_stat_classes(self):
         """
@@ -158,13 +153,11 @@ class NBAStatObject(utilsScripts.Loggable):
         :rtype: None
         """
         self.logger.info('Initializing stat classes for %s object..' % self.name)
-        goldsberry_object = getattr(goldsberry, self._object_indicator)
-        public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry_object) if
-                                     not stat_class1.startswith('_')]
 
-        for stat_class_name in public_stat_classes_names:
+        for stat_class_name in self.stat_classes_names:
             try:
-                self._initialize_stat_class(stat_class_name)
+                # This is to force the lru property to actually cache the value.
+                getattr(self, stat_class_name)
             except ValueError as e:
                 self.logger.warning("Could not initialize %s - Maybe it wasn't instituted in %s" % (stat_class_name,
                                                                                                 self.season))

@@ -1,7 +1,11 @@
 """
 NBAPlayer object and necessary imports functions and consts
 """
-from cached_property import cached_property
+from functools import cached_property
+from nba_api.stats.endpoints import PlayerDashPtShotDefend, PlayerProfileV2, CommonPlayerInfo, ShotChartDetail, \
+    PlayerGameLogs, PlayerDashPtShots, PlayerDashPtReb, PlayerDashPtPass
+from nba_api.stats.library.parameters import ContextMeasureSimple
+from pandas import DataFrame
 
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
 import generalStatsScripts
@@ -134,15 +138,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: Last team player played for in the given season
         :rtype: int
         """
-        num_of_matching_dicts = len(self._players_all_stats_dicts)
+        df = self._players_all_stats_dicts
+        num_of_matching_dicts = len(df)
         if num_of_matching_dicts == 0:
             return None
-        elif num_of_matching_dicts == 1:
-            return self._players_all_stats_dicts[0]['TEAM_ID']
         else:
             # In case of multiple teams, last stat dict is the TOTAL one and has team_id=0, so this is necessary
-            return [career_stats_dict for career_stats_dict in self._players_all_stats_dicts if
-                    career_stats_dict['TEAM_ID']][-1]['TEAM_ID']
+            return df[df['TEAM_ID'] != 0].tail(1)['TEAM_ID'].item()
 
     @staticmethod
     def _get_relevant_stat_dict_for_list_of_stat_dicts(list_of_stat_dicts):
@@ -161,19 +163,15 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                     stats_dict['TEAM_ABBREVIATION'] == 'TOT'][0]
 
     @cached_property
-    def _players_all_stats_dicts(self):
+    def _players_all_stats_dicts(self) -> DataFrame:
         """
-        NOTE: goldsberry originated object of 'career_stats' is essential for this property, so we initialize it if
-        it's not already initialized.
         :return: A list of dicts that represents the player's basic total stats for the given season. Every dict
         represents a team (or TOTAL, if the player had more then one)
         :rtype: list[dict]
         """
         self.logger.info("Initializes all of %s stats dicts" % self.name)
-        self._initialize_stat_class_if_not_initialized('career_stats')
-        filtered_list_of_player_stats_dicts = [stats_dict for stats_dict in
-                                               self.career_stats.seasons_regular() if
-                                               stats_dict['SEASON_ID'] == self.season]
+        df = self.career_stats.SeasonTotalsRegularSeason
+        filtered_list_of_player_stats_dicts = df[df['SEASON_ID'] == self.season]
         return filtered_list_of_player_stats_dicts
 
     @property
@@ -220,6 +218,94 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: int
         """
         return int(self.player_dict['TO_YEAR'])
+
+    @property
+    def stat_classes_names(self):
+        return {
+            'demographics',
+            'career_stats',
+            'defense_dashboard',
+            'shot_chart',
+            # Common
+            'game_logs',
+            'shot_dashboard',
+            'rebound_dashboard',
+            'passing_dashboard',
+        }
+
+    @cached_property
+    def demographics(self) -> CommonPlayerInfo:
+        kwargs = {
+            'player_id': self.id
+        }
+        return self._get_stat_class(stat_class_table_name='CommonPlayerInfo', **kwargs)
+
+    @cached_property
+    def career_stats(self) -> PlayerProfileV2:
+        kwargs = {
+            'player_id': self.id
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerProfileV2', **kwargs)
+
+    @cached_property
+    def defense_dashboard(self) -> PlayerDashPtShotDefend:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerDashPtShotDefend', **kwargs)
+
+    @cached_property
+    def shot_chart(self) -> ShotChartDetail:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season_nullable': self.season,
+            # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
+            'context_measure_simple': ContextMeasureSimple.fga,
+        }
+        return self._get_stat_class(stat_class_table_name='ShotChartDetail', **kwargs)
+
+    @cached_property
+    def game_logs(self) -> PlayerGameLogs:
+        kwargs = {
+            'player_id_nullable': self.id,
+            'season_nullable': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerGameLogs', **kwargs)
+
+    @cached_property
+    def shot_dashboard(self) -> PlayerDashPtShots:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerDashPtShots', **kwargs)
+
+    @cached_property
+    def rebound_dashboard(self) -> PlayerDashPtReb:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerDashPtReb', **kwargs)
+
+    @cached_property
+    def passing_dashboard(self) -> PlayerDashPtPass:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerDashPtPass', **kwargs)
 
     @cached_property
     def regular_season_game_objects(self):
@@ -417,41 +503,37 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
     def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result, number_of_previous_shots_to_check=1):
         """
-        :param shot_result: made (1) or missed (2)
+        :param shot_result: made (1) or missed (0)
         :type shot_result: int
         :param number_of_previous_shots_to_check: number of previous shots to check the condition on
         :type number_of_previous_shots_to_check: int
         :return: tuple of the EFG% on shots after specific shot_result and the amount of those shots
         :rtype: tuple(float, int)
         """
-        player_fgm = 0
-        player_fg3m = 0
-        player_fga = 0
-        shots_dicts_list = self.shot_chart.chart()
-        for i in range(number_of_previous_shots_to_check, len(shots_dicts_list)):
-            shots_to_check_condition_on = shots_dicts_list[i - number_of_previous_shots_to_check:i]
-            shots_to_check_condition_on_results_set = list(set([shot_dict['SHOT_MADE_FLAG'] for shot_dict in
-                                                                shots_to_check_condition_on]))
-            shots_to_check_condition_on_game_id = list(set([shot_dict['GAME_ID'] for shot_dict in
-                                                            shots_to_check_condition_on]))
-            # Checking whether all the previous shots that we check are from the same game or not
-            if len(shots_to_check_condition_on_game_id) == 1:
-                # Checking whether all the previous shots that we check had the same result ot not,
-                # AND whether it was the right result or not
-                if len(shots_to_check_condition_on_results_set) == 1 and \
-                        shots_to_check_condition_on_results_set[0] == shot_result:
-                    # Verifying the shot was in the same game as the last one
-                    if shots_dicts_list[i]['GAME_ID'] == shots_dicts_list[i - 1]['GAME_ID']:
-                        if shots_dicts_list[i]['SHOT_MADE_FLAG']:
-                            player_fgm += 1
-                            if shots_dicts_list[i]['SHOT_TYPE'] == '3PT Field Goal':
-                                player_fg3m += 1
-                        player_fga += 1
+        df = self.shot_chart.shot_chart_detail.get_data_frame()
+        # We don't want shots from different games counting as a shot sequence
+        grouped = df.groupby('GAME_ID')
 
-        if player_fga == 0:
-            return 0, 0
-        else:
-            return utilsScripts.calculate_efg_percent(player_fgm, player_fg3m, player_fga), player_fga
+        # Custom rolling function to calculate sum of previous x shots made
+        def sum_previous_x_makes(s):
+            return s.rolling(window=number_of_previous_shots_to_check).sum().shift()
+
+        # Calculate the number of makes out of previous x shots for each group
+        df['PREV_X_MAKES'] = grouped['SHOT_MADE_FLAG'].transform(sum_previous_x_makes)
+
+        # Filter the dataframe to include only the rows where the previous x shots were all makes
+        filtered_df = df[df['PREV_X_MAKES'] == (number_of_previous_shots_to_check if shot_result == 1 else 0)]
+
+        made_shots_num = filtered_df["SHOT_MADE_FLAG"].sum()
+        three_pt_made_shots_num = filtered_df[
+            (filtered_df['SHOT_MADE_FLAG'] == 1) & (filtered_df['SHOT_TYPE'] == '3PT Field Goal')
+            ].shape[0]
+        attempted_shots_num = len(filtered_df)
+
+        return (
+            utilsScripts.calculate_efg_percent(made_shots_num, three_pt_made_shots_num, attempted_shots_num),
+            attempted_shots_num
+        )
 
     def get_efg_percentage_after_makes(self, number_of_previous_shots_to_check=1):
         """
