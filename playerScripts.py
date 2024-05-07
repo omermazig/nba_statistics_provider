@@ -146,7 +146,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: list[dict]
         """
         self.logger.info("Initializes all of %s stats dicts" % self.name)
-        df = self.career_stats.SeasonTotalsRegularSeason
+        df = self.career_stats.season_totals_regular_season.get_data_frame()
         filtered_list_of_player_stats_dicts = df[df['SEASON_ID'] == self.season]
         return filtered_list_of_player_stats_dicts
 
@@ -291,7 +291,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :rtype: list[gameScripts.NBAGamePlayer]
         """
         regular_season_game_objects = []
-        for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
+        for game_number, game_log in enumerate(reversed(self.game_logs.player_game_logs())):
             self.logger.info('Initializing game number %s' % (game_number + 1))
             regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
@@ -539,7 +539,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         if side not in ['Right', 'Left']:
             raise ValueError('Wrong param. Has to be "Right" or "Left"')
-        jump_shot_logs = [shot_log for shot_log in self.shot_chart.chart() if
+        jump_shot_logs = [shot_log for shot_log in self.shot_chart.shot_chart_detail() if
                           side.capitalize() in shot_log['SHOT_ZONE_AREA']]
         made_jump_shot_logs = [shot_log for shot_log in jump_shot_logs if shot_log['SHOT_MADE_FLAG']]
         made_3_jump_shot_logs = [shot_log for shot_log in made_jump_shot_logs if
@@ -886,8 +886,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: dict[str, dict[str, float]]
         """
-        over_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] >= 30]
-        under_limit_game_dicts = [game_log for game_log in self.game_logs.logs() if game_log['MIN'] < 30]
+        over_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] >= 30]
+        under_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] < 30]
         return {
             ('Over %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(over_limit_game_dicts,
                                                                                      per_36=True),
