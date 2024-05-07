@@ -1,3 +1,6 @@
 cached_property
 retrying
 py-goldsberry
+ipython
+nba_api
+pandas
