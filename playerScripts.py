@@ -4,7 +4,8 @@ NBAPlayer object and necessary imports functions and consts
 from functools import cached_property
 from nba_api.stats.endpoints import PlayerDashPtShotDefend, PlayerProfileV2, CommonPlayerInfo, ShotChartDetail, \
     PlayerGameLogs, PlayerDashPtShots, PlayerDashPtReb, PlayerDashPtPass
-from nba_api.stats.library.parameters import ContextMeasureSimple
+from nba_api.stats.library.parameters import ContextMeasureSimple, Season
+from nba_api.stats.static.players import find_players_by_full_name
 from pandas import DataFrame
 
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
@@ -12,8 +13,6 @@ import generalStatsScripts
 import teamScripts
 import gameScripts
 import utilsScripts
-
-import goldsberry
 
 
 def must_have_one_team_wrapper(func1):
@@ -46,13 +45,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     An object that represent a single nba player in a single season.
     """
 
-    def __init__(self, player_name_or_id, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
+    def __init__(self, name_or_id, season=Season.current_season, initialize_stat_classes=True,
                  initialize_game_objects=False):
         """
         NBA player object
 
-        :param player_name_or_id: can be a player id or full name with an underline ('steph_curry').
-        :type player_name_or_id: int or str
+        :param name_or_id: can be a player id or full name with an underline ('steph_curry').
+        :type name_or_id: int or str
         :param season: Season to initialize player's data by
         :type season: str
         :param initialize_stat_classes: Whether to initialize player's stat classes or not (takes a little time)
@@ -60,42 +59,28 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: An NBA player object
         :rtype : NBAPlayer
         """
-        self.player_dict = self._get_player_dict(player_name_or_id, season)
+        self._id = name_or_id if isinstance(name_or_id, int) else NBAPlayer._get_player_id_from_name(name_or_id)
         super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
                                         initialize_game_objects=initialize_game_objects)
 
-    @staticmethod
-    def _get_player_dict(player_name_or_id, season):
-        """
-        Get player's id or name + season, and returns it's game id for that season
-        :param player_name_or_id:
-        :type player_name_or_id: str or int
-        :param season:
-        :type season: str
-        :return:
-        :rtype: dict
-        """
-        if type(player_name_or_id) is int:
-            identifying_key = 'PERSON_ID'
-            filter_function = lambda dict1: dict1[identifying_key] and player_name_or_id == dict1[identifying_key]
-        elif type(player_name_or_id) is str:
-            identifying_key = 'PLAYERCODE'
-            filter_function = lambda dict1: dict1[identifying_key] and player_name_or_id.lower() in dict1[
-                identifying_key]
-        else:
-            raise Exception('Constructor only receives string or integer')
+    @property
+    def id(self):
+        return self._id
 
-        filtered_player_dicts_list = [dict1 for dict1 in goldsberry.PlayerList(is_only_current_season=0).players()
-                                      if
-                                      int(dict1['FROM_YEAR']) <= int(season[:4]) <= int(dict1['TO_YEAR'])]
-        filtered_player_dicts_list = [dict1 for dict1 in filtered_player_dicts_list if filter_function(dict1)]
-        number_of_matching_player_dicts = len(filtered_player_dicts_list)
+    @staticmethod
+    def _get_player_id_from_name(player_name: str) -> int:
+        matching_players_info = find_players_by_full_name(player_name)
+        number_of_matching_player_dicts = len(matching_players_info) if matching_players_info else 0
         if number_of_matching_player_dicts == 0:
             raise NoSuchPlayer('There was no player matching the given parameters')
         elif number_of_matching_player_dicts > 1:
-            raise TooMuchPlayers('There were %s dicts for %s...' % (number_of_matching_player_dicts, player_name_or_id))
+            raise TooMuchPlayers('There were %s dicts for %s...' % (number_of_matching_player_dicts, player_name))
         else:
-            return filtered_player_dicts_list[0]
+            return matching_players_info[0]['id']
+
+    @property
+    def player_df(self):
+        return self.demographics.common_player_info.get_data_frame()
 
     @property
     def _object_indicator(self):
@@ -108,16 +93,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return:
         :rtype: str
         """
-        return self.player_dict["PLAYERCODE"]
-
-    @property
-    def id(self):
-        """
-
-        :return:
-        :rtype: str
-        """
-        return self.player_dict["PERSON_ID"]
+        return self.player_df["PLAYERCODE"].item()
 
     @cached_property
     def current_team_object(self):
@@ -208,7 +184,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: The first year that the object existed
         :rtype: int
         """
-        return int(self.player_dict['FROM_YEAR'])
+        return int(self.player_df['FROM_YEAR'].item())
 
     @property
     def last_year(self):
@@ -217,7 +193,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :return: The first year that the object existed
         :rtype: int
         """
-        return int(self.player_dict['TO_YEAR'])
+        return int(self.player_df['TO_YEAR'].item())
 
     @property
     def stat_classes_names(self):
@@ -954,17 +930,17 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
 if __name__ == "__main__":
     players_names_list = [
-        # 'rajon_rondo',
-        'stephen_curry',
-        # 'james_harden',
-        # 'lebron_james',
-        # 'jr_smith',
-        # 'paul_pierce',
-        # 'carmelo_anthony'
+        # 'rajon rondo',
+        'stephen curry',
+        # 'james harden',
+        # 'lebron james',
+        # 'jr smith',
+        # 'paul pierce',
+        # 'carmelo anthony'
     ]
     selected_season = '2020-21'
-    for player_name in players_names_list:
-        nba_player = NBAPlayer(player_name_or_id=player_name, season=selected_season)
+    for player_name_ in players_names_list:
+        nba_player = NBAPlayer(name_or_id=player_name_, season=selected_season)
         nba_player.logger.info(f"Print {nba_player.name} shooting info")
         nba_player.print_shooting_info()
         nba_player.logger.info(f"Print {nba_player.name} passing info")
