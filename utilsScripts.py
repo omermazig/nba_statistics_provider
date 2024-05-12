@@ -582,3 +582,33 @@ def get_aPER_from_stat_dict(stat_dict, team_object):
                         - PF * league_foul_factor)
 
     return uPER * pace_adjustment
+
+
+class ActionGapManager:
+    """ This is due to the NBA API blocking us if we make requests too frequently. It's a cooldown mechanism"""
+
+    def __init__(self, gap=0.6):
+        self.gap = gap
+        self.last_action_time = None
+
+    def _wait_for_gap(self):
+        if self.last_action_time is not None:
+            elapsed_time = time.time() - self.last_action_time
+            if elapsed_time < self.gap:
+                time.sleep(self.gap - elapsed_time)
+
+    def _update_last_action_time(self):
+        self.last_action_time = time.time()
+
+    @contextmanager
+    def action_gap(self):
+        try:
+            self._wait_for_gap()
+            yield
+        finally:
+            self._update_last_action_time()
+
+
+# This is for not overloading the NBA API and getting blocked
+nba_api_cooldown = 0.6
+gap_manager = ActionGapManager(gap=nba_api_cooldown)

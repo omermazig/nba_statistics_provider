@@ -142,8 +142,10 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         return "{name} Object".format(name=self.name)
 
-    def _get_stat_class(self, stat_class_table_name, **kwargs):
-        stat_class = getattr(endpoints, stat_class_table_name)(**kwargs)
+    @staticmethod
+    def _get_stat_class(stat_class_table_name, **kwargs):
+        with utilsScripts.gap_manager.action_gap():
+            stat_class = getattr(endpoints, stat_class_table_name)(**kwargs)
         return stat_class
 
     def initialize_stat_classes(self):
