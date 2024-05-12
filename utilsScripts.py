@@ -2,12 +2,14 @@
 All sort of util functions to help other classes with calculations
 """
 import functools
-import logging
 import os
 import csv
 import collections
 import sys
+import time
 import logging
+
+from contextlib import contextmanager
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -363,13 +365,11 @@ def get_efg_relevant_data_from_multiple_shot_charts(shot_charts):
     The number of field goals attempted
     :rtype: tuple(int, int, int)
     """
-    field_goal_makes = 0
-    three_pointer_makes = 0
-    field_goal_attempts = 0
-    for shot_chart in shot_charts:
-        field_goal_makes += shot_chart["FGM"]
-        three_pointer_makes += shot_chart["FG3M"]
-        field_goal_attempts += shot_chart["FGA"]
+    cols = ["FGM", "FG3M", "FGA"]
+    field_goal_info = shot_charts[cols].sum(axis=0)
+    field_goal_makes = field_goal_info["FGM"]
+    three_pointer_makes = field_goal_info["FG3M"]
+    field_goal_attempts = field_goal_info["FGA"]
 
     if field_goal_attempts == 0:
         return 0, 0, 0
@@ -526,6 +526,7 @@ def get_most_recent_stat_dict(stat_dict_list):
     :return: The desired stat dict
     :rtype: dict
     """
+    # TODO - Fix to df
     if len(stat_dict_list) == 0:
         return None
     elif len(stat_dict_list) == 1:
