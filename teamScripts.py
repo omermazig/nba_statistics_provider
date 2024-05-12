@@ -165,7 +165,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             player_name = player_dict_on_roster['PLAYER']
             player_id = player_dict_on_roster['PLAYER_ID']
             try:
-                nba_player_object = playerScripts.NBAPlayer(player_name_or_id=player_id,
+                nba_player_object = playerScripts.NBAPlayer(name_or_id=player_id,
                                                             season=self.season,
                                                             initialize_stat_classes=initialize_stat_classes)
                 nba_player_object.current_team_object = self
