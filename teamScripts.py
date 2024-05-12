@@ -108,13 +108,8 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
 
     @cached_property
     def stats_dict(self):
-        """
-
-        :return:
-        :rtype:
-        """
-        with self.season_stats.object_manager.reinitialize_data_with_new_parameters(MeasureType='Base'):
-            return self.season_stats.overall()[0]
+        df = self.season_stats.team_stats.get_data_frame()
+        return df[df['YEAR'] == self.season]
 
     @property
     def first_year(self):
