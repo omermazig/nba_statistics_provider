@@ -10,6 +10,7 @@ import time
 import logging
 
 from contextlib import contextmanager
+from pandas import DataFrame
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -89,27 +90,22 @@ class Loggable:
         self.logger = logging.getLogger(__name__)
 
 
-def get_per_game_from_total_stats(stat_dict):
-    """
-
-    :param stat_dict:
-    :type stat_dict: dict
-    """
-    per_game_stat_dict = {}
-    if 'GP' in stat_dict:
-        games_denominator = stat_dict['GP']
-    elif 'G' in stat_dict:
-        games_denominator = stat_dict['G']
+def get_per_game_from_total_stats(stats_df: DataFrame):
+    if 'GP' in stats_df:
+        games_denominator = stats_df['GP']
+    elif 'G' in stats_df:
+        games_denominator = stats_df['G']
     else:
         raise Exception('No "games" value in dict')
 
-    for k, v in stat_dict.items():
+    per_game_stat_df = stats_df.copy()
+    for k, v in per_game_stat_df.items():
         if k in values_to_adjust_to_per_game_mode:
-            per_game_stat_dict[k] = PrettyFloat(v / games_denominator)
+            per_game_stat_df[k] = v / games_denominator
         else:
-            per_game_stat_dict[k] = v
+            per_game_stat_df[k] = v
 
-    return per_game_stat_dict
+    return per_game_stat_df
 
 
 def join_single_game_stats(game_logs_list, per_36=False):
