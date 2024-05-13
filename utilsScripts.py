@@ -349,16 +349,15 @@ def calculate_ppp_from_efg_percent(efg_percent):
     return PrettyFloat(efg_percent * 2)
 
 
-def get_efg_relevant_data_from_multiple_shot_charts(shot_charts):
+def get_efg_relevant_data_from_multiple_shot_charts(shot_charts: DataFrame) -> tuple[int, int, int]:
     """
     Receives a list of shot charts, and returns a tuple with the relevant data to calculate effective field goal
     percentage
     :param shot_charts: Any object describing made and missed shots with 2 and 3 point divide
-    :type shot_charts: list[dict]
     :return: tuple of:
-    The number of field goals made,
-    The number of 3 point field goals made,
-    The number of field goals attempted
+        The number of field goals made,
+        The number of 3 point field goals made,
+        The number of field goals attempted
     :rtype: tuple(int, int, int)
     """
     cols = ["FGM", "FG3M", "FGA"]
@@ -367,28 +366,19 @@ def get_efg_relevant_data_from_multiple_shot_charts(shot_charts):
     three_pointer_makes = field_goal_info["FG3M"]
     field_goal_attempts = field_goal_info["FGA"]
 
-    if field_goal_attempts == 0:
-        return 0, 0, 0
-    else:
-        return field_goal_makes, three_pointer_makes, field_goal_attempts
+    return field_goal_makes, three_pointer_makes, field_goal_attempts
 
 
-def get_efg_percentage_from_multiple_shot_charts(shot_charts):
+def get_efg_percentage_from_multiple_shot_charts(shot_charts: DataFrame) -> tuple[float, int]:
     """
     Receives a list of shot charts, and returns the effective field goal percentage, alongside with the number of shots
     EFG% = FGM + (0.5 * FG3M) / FGA
     :param shot_charts: Any object describing made and missed shots with 2 and 3 point divide
-    :type shot_charts: list[dict]
     :return: tuple of the EFG% on uncontested shots, and the amount of those shots.
-    :rtype: tuple(float)
     """
     field_goal_makes, three_pointer_makes, field_goal_attempts = \
         get_efg_relevant_data_from_multiple_shot_charts(shot_charts)
-    if field_goal_attempts == 0:
-        return 0, 0
-    else:
-        return calculate_efg_percent(field_goal_makes, three_pointer_makes,
-                                     field_goal_attempts), field_goal_attempts
+    return calculate_efg_percent(field_goal_makes, three_pointer_makes, field_goal_attempts), field_goal_attempts
 
 
 def get_stat_summation_from_list(stat_dicts, stat_key):
@@ -512,50 +502,47 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
         return False
 
 
-def get_most_recent_stat_dict(stat_dict_list):
+def get_most_recent_stat_dict(stats_df: DataFrame):
     """
     Returns the TOTAL stat dict if the player played for only one team, and THE STAT DICT FOR THE LATEST TEAM if the
     player played for more then one team.
 
-    :param stat_dict_list: List of all the stat dicts. Length could be 1 (one team) or 3+ (2+ team and TOTAL)
-    :type stat_dict_list: list[dict]
+    :param stats_df: List of all the stat dicts. Length could be 1 (one team) or 3+ (2+ team and TOTAL)
     :return: The desired stat dict
     :rtype: dict
     """
     # TODO - Fix to df
-    if len(stat_dict_list) == 0:
+    if len(stats_df) == 0:
         return None
-    elif len(stat_dict_list) == 1:
-        return stat_dict_list[0]
+    elif len(stats_df) == 1:
+        return stats_df[0]
     else:
-        return stat_dict_list[-2]
+        return stats_df[-2]
 
 
 # noinspection PyPep8Naming
-def get_aPER_from_stat_dict(stat_dict, team_object):
+def get_aPER_from_stat_dict(stat_df: DataFrame, team_object) -> float:
     """
-    A calculation of the aPER, which is the PER measurement BEFORE normalization.
-
-    :param stat_dict:
-    :type stat_dict: dict[str, float or str]
+    :param stat_df:
+    :type stat_df: dict[str, float or str]
     :param team_object:
     :type team_object: teamScripts.NBATeam
-    :return:
-    :rtype:
+    :return: The aPER, which is the PER measurement BEFORE normalization.
     """
-    MIN = stat_dict['MIN']
-    FG3M = stat_dict['FG3M']
-    AST = stat_dict['AST']
-    FGM = stat_dict['FGM']
-    FTM = stat_dict['FTM']
-    TOV = stat_dict['TOV']
-    FGA = stat_dict['FGA']
-    FTA = stat_dict['FTA']
-    REB = stat_dict['REB']
-    OREB = stat_dict['OREB']
-    STL = stat_dict['STL']
-    BLK = stat_dict['BLK']
-    PF = stat_dict['PF']
+    # TODO - Check
+    MIN = stat_df['MIN']
+    FG3M = stat_df['FG3M']
+    AST = stat_df['AST']
+    FGM = stat_df['FGM']
+    FTM = stat_df['FTM']
+    TOV = stat_df['TOV']
+    FGA = stat_df['FGA']
+    FTA = stat_df['FTA']
+    REB = stat_df['REB']
+    OREB = stat_df['OREB']
+    STL = stat_df['STL']
+    BLK = stat_df['BLK']
+    PF = stat_df['PF']
 
     team_ast_percentage = team_object.get_assist_percentage()
     pace_adjustment = team_object.get_pace_adjustment()

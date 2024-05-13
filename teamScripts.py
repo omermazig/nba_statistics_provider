@@ -2,9 +2,11 @@
 NBATeam object and necessary imports functions and consts
 """
 import os
-from cached_property import cached_property
+from functools import cached_property
+from nba_api.stats.endpoints import TeamGameLogs, TeamYearByYearStats, TeamInfoCommon, LeagueDashPtTeamDefend, \
+    ShotChartDetail
+from nba_api.stats.library.parameters import ContextMeasureSimple
 
-from my_exceptions import TooMuchPlayers, NoSuchPlayer
 import generalStatsScripts
 import playerScripts
 import gameScripts
@@ -75,16 +77,11 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
                                       initialize_game_objects=initialize_game_objects)
 
     @property
-    def _object_indicator(self):
+    def _object_indicator(self) -> str:
         return "team"
 
     @property
-    def name(self):
-        """
-
-        :return:
-        :rtype: str
-        """
+    def name(self) -> str:
         if type(self.team_name_or_id) is str:
             return self.team_name_or_id.lower()
         elif type(self.team_name_or_id) is int:
@@ -93,7 +90,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             raise Exception('Constructor only receives string or integer')
 
     @property
-    def id(self):
+    def id(self) -> int:
         """
 
         :return:
@@ -107,8 +104,8 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             raise Exception('Constructor only receives string or integer')
 
     @cached_property
-    def stats_dict(self):
-        df = self.season_stats.team_stats.get_data_frame()
+    def stats_df(self):
+        df = self.year_by_year_stats.team_stats.get_data_frame()
         return df[df['YEAR'] == self.season]
 
     @property
@@ -118,7 +115,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The first year that the object existed
         :rtype: int
         """
-        return int(self.team_info.info()[0]['MIN_YEAR'])
+        return int(self.team_info.team_info_common.get_data_frame()['MIN_YEAR'].item())
 
     @property
     def last_year(self):
@@ -127,7 +124,12 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The first year that the object existed
         :rtype: int
         """
-        return int(self.team_info.info()[0]['MAX_YEAR'])
+        return int(self.team_info.team_info_common.get_data_frame()['MAX_YEAR'].item())
+
+    def get_stat_classes_names(self):
+        return generalStatsScripts.NBAStatObject.get_stat_classes_names(self) + [
+            'team_info',
+        ]
 
     @cached_property
     def current_league_object(self):
@@ -146,6 +148,44 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :rtype: list[playerScripts.NBAPlayer]
         """
         return self._generate_current_players_objects(initialize_stat_classes=False)
+
+    @cached_property
+    def team_info(self) -> TeamInfoCommon:
+        kwargs = {
+            'team_id': self.id
+        }
+        return self._get_stat_class(stat_class_table_name='TeamInfoCommon', **kwargs)
+
+    @cached_property
+    def year_by_year_stats(self) -> TeamYearByYearStats:
+        kwargs = {
+            'team_id': self.id
+        }
+        return self._get_stat_class(stat_class_table_name='TeamYearByYearStats', **kwargs)
+
+    @cached_property
+    def game_logs(self) -> TeamGameLogs:
+        return super().game_logs
+
+    @cached_property
+    def defense_dashboard(self) -> LeagueDashPtTeamDefend:
+        kwargs = {
+            'team_id_nullable': self.id,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='LeagueDashPtTeamDefend', **kwargs)
+
+    @cached_property
+    def shot_chart(self) -> ShotChartDetail:
+        kwargs = {
+            'team_id': self.id,
+            # This is to get the results of every player
+            'player_id': 0,
+            'season_nullable': self.season,
+            # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
+            'context_measure_simple': ContextMeasureSimple.fga,
+        }
+        return self._get_stat_class(stat_class_table_name='ShotChartDetail', **kwargs)
 
     def _generate_current_players_objects(self, initialize_stat_classes):
         """
@@ -222,7 +262,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         return player_all_time_game_objects
 
     def get_pace(self):
-        return self.season_stats.overall()[0]['PACE']
+        return self.year_by_year_stats.overall()[0]['PACE']
 
     def get_pace_adjustment(self):
         """
@@ -238,7 +278,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The portion of the team's field goals wich was assisted
         :rtype: float
         """
-        return self.season_stats.overall()[0]['AST_PCT']
+        return self.year_by_year_stats.overall()[0]['AST_PCT']
 
 
 if __name__ == "__main__":

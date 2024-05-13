@@ -1,11 +1,14 @@
 """
 NBAStatObject object and necessary imports functions and consts
 """
+from typing import Union
+
 import webbrowser
 import abc
-from cached_property import cached_property
+from functools import cached_property
 
 from nba_api.stats import endpoints
+from nba_api.stats.endpoints import PlayerDashPtShots, TeamDashPtShots
 
 import goldsberry
 # import used only for type-hinting
@@ -84,15 +87,59 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         pass
 
-    @property
-    @abc.abstractmethod
-    def stat_classes_names(self) -> list[str]:
+    def get_stat_classes_names(self) -> list[str]:
         """ The stat classes available for the object """
+        return [
+            'game_logs',
+            'shot_dashboard',
+            'rebound_dashboard',
+            'passing_dashboard',
+            'defense_dashboard',
+            'year_by_year_stats',
+            'shot_chart',
+        ]
+
+    @cached_property
+    def game_logs(self):
+        kwargs = {
+            f'{self._object_indicator}_id_nullable': self.id,
+            'season_nullable': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name=f'{self._object_indicator.capitalize()}GameLogs', **kwargs)
+
+    @cached_property
+    def shot_dashboard(self) -> Union[PlayerDashPtShots, TeamDashPtShots]:
+        kwargs = {
+            'player_id': self.id,
+            # This is to get the results against every team
+            'team_id': 0,
+            'season': self.season,
+        }
+        return self._get_stat_class(stat_class_table_name='PlayerDashPtShots', **kwargs)
+
+    @cached_property
+    @abc.abstractmethod
+    def rebound_dashboard(self):
         pass
 
     @cached_property
     @abc.abstractmethod
-    def stats_dict(self):
+    def passing_dashboard(self):
+        pass
+
+    @cached_property
+    @abc.abstractmethod
+    def defense_dashboard(self):
+        pass
+
+    @cached_property
+    @abc.abstractmethod
+    def year_by_year_stats(self):
+        pass
+
+    @cached_property
+    @abc.abstractmethod
+    def stats_df(self):
         """
 
         :return: The last year that the object existed
@@ -107,8 +154,8 @@ class NBAStatObject(utilsScripts.Loggable):
         :return:
         :rtype: str
         """
-        player_stat_page_regex = "http://stats.nba.com/%s/#!/{id}/stats/" % self._object_indicator
-        return player_stat_page_regex.format(id=self.id)
+        player_stat_page_regex = f"https://www.nba.com/stats/{self._object_indicator}/{self.id}"
+        return player_stat_page_regex
 
     @cached_property
     def regular_season_game_objects(self):
@@ -156,13 +203,12 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         self.logger.info('Initializing stat classes for %s object..' % self.name)
 
-        for stat_class_name in self.stat_classes_names:
+        for stat_class_name in self.get_stat_classes_names():
             try:
                 # This is to force the lru property to actually cache the value.
                 getattr(self, stat_class_name)
             except ValueError as e:
-                self.logger.warning("Could not initialize %s - Maybe it wasn't instituted in %s" % (stat_class_name,
-                                                                                                self.season))
+                self.logger.warning(f"Couldn't initialize {stat_class_name} - Maybe it didn't exist in {self.season}")
                 self.logger.error(e, exc_info=True)
 
     def open_web_stat_page(self):
@@ -173,31 +219,34 @@ class NBAStatObject(utilsScripts.Loggable):
         """
         webbrowser.open(self._stats_page_url)
 
+    @staticmethod
+    def groupby_defender_distance(df):
+        """
+        Contested - defender within 4 feet
+        :return: tuple of the FG% on contested shots, and the amount of those shots.
+        :rtype: tuple(float, float)
+        """
+        # Define a function to categorize close defense distances into two groups
+        def distance_group(distance):
+            if distance in ['0-2 Feet - Very Tight', '2-4 Feet - Tight']:
+                return 'Tight'
+            else:
+                return 'Open'
+
+        # Apply the function to create a new column 'DISTANCE_GROUP'
+        df['DISTANCE_GROUP'] = df['CLOSE_DEF_DIST_RANGE'].apply(distance_group)
+        # Group by 'DISTANCE_GROUP' and sum the desired categories
+        grouped_df = df.groupby('DISTANCE_GROUP')[['FGM', 'FGA', 'FG3M']].sum()
+        return grouped_df
+
     def get_efg_percentage_on_contested_shots_outside_10_feet(self):
         """
         Contested - defender within 4 feet
         :return: tuple of the FG% on contested shots, and the amount of those shots.
         :rtype: tuple(float, float)
         """
-        very_tight_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
-        tight_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
-        for dict_to_match in self.shot_dashboard.closest_defender_10ft():
-            if dict_to_match['CLOSE_DEF_DIST_RANGE'] == '0-2 Feet - Very Tight':
-                very_tight_shots_dict = dict_to_match
-            elif dict_to_match['CLOSE_DEF_DIST_RANGE'] == '2-4 Feet - Tight':
-                tight_shots_dict = dict_to_match
-
-        contested_field_goal_makes = very_tight_shots_dict["FGM"] + tight_shots_dict["FGM"]
-        contested_field_goal_attempts = very_tight_shots_dict["FGA"] + tight_shots_dict["FGA"]
-        contested_3_pointer_makes = very_tight_shots_dict["FG3M"] + tight_shots_dict["FG3M"]
-        if contested_field_goal_attempts == 0:
-            return 0, 0
-        else:
-            efg_percentage = utilsScripts.calculate_efg_percent(
-                contested_field_goal_makes,
-                contested_3_pointer_makes,
-                contested_field_goal_attempts)
-            return efg_percentage, contested_field_goal_attempts
+        df = self.shot_dashboard.closest_defender10ft_plus_shooting.get_data_frame()
+        return self._get_efg_percentage_of_custom_df(df, self.groupby_defender_distance, "Tight")
 
     def get_efg_percentage_on_uncontested_shots_outside_10_feet(self):
         """
@@ -205,25 +254,21 @@ class NBAStatObject(utilsScripts.Loggable):
         :return: tuple of the FG% on uncontested shots, and the amount of those shots.
         :rtype: tuple(float, float)
         """
-        open_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
-        wide_open_shots_dict = {"FGM": 0, "FGA": 0, "FG3M": 0}
-        for dict_to_match in self.shot_dashboard.closest_defender_10ft():
-            if dict_to_match['CLOSE_DEF_DIST_RANGE'] == '4-6 Feet - Open':
-                open_shots_dict = dict_to_match
-            elif dict_to_match['CLOSE_DEF_DIST_RANGE'] == '6+ Feet - Wide Open':
-                wide_open_shots_dict = dict_to_match
+        df = self.shot_dashboard.closest_defender10ft_plus_shooting.get_data_frame()
+        return self._get_efg_percentage_of_custom_df(df, self.groupby_defender_distance, "Open")
 
-        uncontested_field_goal_makes = open_shots_dict["FGM"] + wide_open_shots_dict["FGM"]
-        uncontested_field_goal_attempts = open_shots_dict["FGA"] + wide_open_shots_dict["FGA"]
-        uncontested_3_pointer_makes = open_shots_dict["FG3M"] + wide_open_shots_dict["FG3M"]
-        if uncontested_field_goal_attempts == 0:
-            return 0, 0
-        else:
-            efg_percentage = utilsScripts.calculate_efg_percent(
-                uncontested_field_goal_makes,
-                uncontested_3_pointer_makes,
-                uncontested_field_goal_attempts)
-            return efg_percentage, uncontested_field_goal_attempts
+    @staticmethod
+    def _get_efg_percentage_of_custom_df(df, groupby_func, key):
+        grouped_df = groupby_func(df)
+        stats = grouped_df.loc[key]
+        field_goal_makes = stats["FGM"]
+        field_goal_attempts = stats["FGA"]
+        three_pointer_makes = stats["FG3M"]
+        efg_percentage = utilsScripts.calculate_efg_percent(
+            field_goal_makes,
+            three_pointer_makes,
+            field_goal_attempts)
+        return efg_percentage, field_goal_attempts
 
     def get_diff_in_efg_percentage_between_uncontested_and_contested_shots_outside_10_feet(self):
         """
@@ -325,7 +370,7 @@ class NBAStatObject(utilsScripts.Loggable):
         :return:
         :rtype: float
         """
-        return utilsScripts.get_num_of_possessions_from_stat_dict(self.stats_dict)
+        return utilsScripts.get_num_of_possessions_from_stat_dict(self.stats_df)
 
     @staticmethod
     def print_field_goal_percentage_in_a_given_condition(name, condition_func, condition_string,

@@ -130,13 +130,13 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 team_object.current_league_object = self
                 # Cache player_stats_dict objects. a is unused
                 # noinspection PyUnusedLocal
-                a = team_object.stats_dict
+                a = team_object.stats_df
                 if initialize_player_objects:
                     for player_object in team_object.current_players_objects:
                         player_object.initialize_stat_classes()
                         # Cache player_stats_dict objects. a is unused
                         # noinspection PyUnusedLocal
-                        a = player_object.stats_dict
+                        a = player_object.stats_df
                         if initialize_game_objects:
                             self.logger.info('Initializing players game objects for %s object..' % player_object.name)
                             # Cache game objects. a is unused
@@ -208,7 +208,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         for player_object in self._players_not_on_team_objects_list:
             # Cache player_stats_dict objects. a is unused
             # noinspection PyUnusedLocal
-            a = player_object.stats_dict
+            a = player_object.stats_df
 
     def get_team_object_by_name(self, team_name):
         """
@@ -274,7 +274,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         players_name_and_result = []
         aPer_sum = 0
         # Getting qualifying players for stat - players with a team that are on pace to play at least 500 minutes
-        qualifying_players = [p for p in self.players_on_teams_objects_list if p.stats_dict and
+        qualifying_players = [p for p in self.players_on_teams_objects_list if p.stats_df and
                               p.is_player_over_projected_minutes_limit(minutes_limit=500)]
         num_of_players_on_teams = len(qualifying_players)
 
