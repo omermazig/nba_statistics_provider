@@ -19,13 +19,11 @@ import gameScripts
 import utilsScripts
 
 
-class NBAStatObject(utilsScripts.Loggable):
+class NBAStatObject(abc.ABC, utilsScripts.Loggable):
     """
     An abstract class that gathers functions that uses elements that are common for a number of object,
     like player or team
     """
-    __metaclass__ = abc.ABCMeta
-
     def __init__(self, season, initialize_stat_classes, initialize_game_objects):
         super().__init__()
         self.season = season
