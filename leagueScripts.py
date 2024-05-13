@@ -202,7 +202,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                                           not player_dict['TEAM_ID']]
         # noinspection PyTypeChecker
         self._players_not_on_team_objects_list = [
-            playerScripts.NBAPlayer(player_name_or_id=player_dict['PERSON_ID'], season=self.season,
+            playerScripts.NBAPlayer(name_or_id=player_dict['PERSON_ID'], season=self.season,
                                     initialize_game_objects=initialize_game_objects) for player_dict in
             players_not_on_team_dicts_list]
         for player_object in self._players_not_on_team_objects_list:
