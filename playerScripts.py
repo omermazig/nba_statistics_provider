@@ -1,18 +1,23 @@
 """
 NBAPlayer object and necessary imports functions and consts
 """
+from typing import Union, Optional, List, Literal
+
 from functools import cached_property
 from nba_api.stats.endpoints import PlayerDashPtShotDefend, PlayerProfileV2, CommonPlayerInfo, ShotChartDetail, \
-    PlayerGameLogs, PlayerDashPtShots, PlayerDashPtReb, PlayerDashPtPass
+    PlayerGameLogs, PlayerDashPtReb, PlayerDashPtPass
 from nba_api.stats.library.parameters import ContextMeasureSimple, Season
 from nba_api.stats.static.players import find_players_by_full_name
 from pandas import DataFrame
+from pandas.core.groupby import DataFrameGroupBy
 
 from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
 import generalStatsScripts
 import teamScripts
 import gameScripts
 import utilsScripts
+
+SIDE_OF_FLOOR = Literal['Right', 'Left', 'Center']
 
 
 def must_have_one_team_wrapper(func1):
@@ -33,7 +38,7 @@ def must_have_one_team_wrapper(func1):
         :rtype:
         """
         if not args[0].is_single_team_player():
-            raise PlayerHasMoreThenOneTeam
+            raise PlayerHasMoreThenOneTeam(f"{args[0].name} played on more than one team in {args[0].season}")
         else:
             return func1(*args)
 
@@ -45,26 +50,22 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     An object that represent a single nba player in a single season.
     """
 
-    def __init__(self, name_or_id, season=Season.current_season, initialize_stat_classes=True,
-                 initialize_game_objects=False):
+    def __init__(self, name_or_id: Union[int, str], season: str = Season.current_season,
+                 initialize_stat_classes: bool = True, initialize_game_objects: bool = False):
         """
         NBA player object
 
         :param name_or_id: can be a player id or full name with an underline ('steph_curry').
-        :type name_or_id: int or str
         :param season: Season to initialize player's data by
-        :type season: str
         :param initialize_stat_classes: Whether to initialize player's stat classes or not (takes a little time)
-        :type initialize_stat_classes: bool
         :return: An NBA player object
-        :rtype : NBAPlayer
         """
         self._id = name_or_id if isinstance(name_or_id, int) else NBAPlayer._get_player_id_from_name(name_or_id)
         super(NBAPlayer, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
                                         initialize_game_objects=initialize_game_objects)
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self._id
 
     @staticmethod
@@ -79,41 +80,28 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return matching_players_info[0]['id']
 
     @property
-    def player_df(self):
+    def player_info(self) -> DataFrame:
         return self.demographics.common_player_info.get_data_frame()
 
     @property
-    def _object_indicator(self):
+    def _object_indicator(self) -> str:
         return "player"
 
     @property
-    def name(self):
-        """
-
-        :return:
-        :rtype: str
-        """
-        return self.player_df["PLAYERCODE"].item()
+    def name(self) -> str:
+        return self.player_info["PLAYERCODE"].item()
 
     @cached_property
-    def current_team_object(self):
-        """
-
-        :return: A generated object for the team that the player is currently playing for
-        :rtype: teamScripts.NBATeam
-        """
+    def current_team_object(self) -> Optional[teamScripts.NBATeam]:
+        """ A generated object for the team that the player is currently playing for """
         if self.team_id:
             return teamScripts.NBATeam(self.team_id, season=self.season)
         else:
             return None
 
     @property
-    def team_id(self):
-        """
-
-        :return: Last team player played for in the given season
-        :rtype: int
-        """
+    def team_id(self) -> Optional[int]:
+        """ Last team player played for in the given season """
         df = self._players_all_stats_dicts
         num_of_matching_dicts = len(df)
         if num_of_matching_dicts == 0:
@@ -123,39 +111,35 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return df[df['TEAM_ID'] != 0].tail(1)['TEAM_ID'].item()
 
     @staticmethod
-    def _get_relevant_stat_dict_for_list_of_stat_dicts(list_of_stat_dicts):
+    def _get_relevant_stat_dict_for_list_of_stat_dicts(stats_df) -> Optional[DataFrame]:
         """
         NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams.
         :return: A dict that represent the player's basic total stats for the given season
-        :rtype: dict
         """
-        num_of_matching_dicts = len(list_of_stat_dicts)
+        num_of_matching_dicts = len(stats_df)
         if num_of_matching_dicts == 0:
             return None
         elif num_of_matching_dicts == 1:
-            return list_of_stat_dicts[0]
+            return stats_df
         else:
-            return [stats_dict for stats_dict in list_of_stat_dicts if
-                    stats_dict['TEAM_ABBREVIATION'] == 'TOT'][0]
+            return stats_df[stats_df['TEAM_ABBREVIATION'] == 'TOT']
 
     @cached_property
     def _players_all_stats_dicts(self) -> DataFrame:
         """
-        :return: A list of dicts that represents the player's basic total stats for the given season. Every dict
-        represents a team (or TOTAL, if the player had more then one)
-        :rtype: list[dict]
+        A list of dicts that represents the player's basic total stats for the given season.
+        Every df row represents a team (or TOTAL, if the player had more than one)
         """
-        self.logger.info("Initializes all of %s stats dicts" % self.name)
-        df = self.career_stats.season_totals_regular_season.get_data_frame()
+        self.logger.info("Initializes all of %s stats dfs" % self.name)
+        df = self.year_by_year_stats.season_totals_regular_season.get_data_frame()
         filtered_list_of_player_stats_dicts = df[df['SEASON_ID'] == self.season]
         return filtered_list_of_player_stats_dicts
 
     @property
-    def stats_dict(self):
+    def stats_df(self) -> DataFrame:
         """
         NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams
-        :return: A dict that represent the player's basic total stats for the given season
-        :rtype: dict
+        :return: A df that represent the player's basic total stats for the given season
         """
         return self._get_relevant_stat_dict_for_list_of_stat_dicts(self._players_all_stats_dicts)
 
@@ -166,7 +150,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         represents a team (or TOTAL, if the player had more then one)
         :rtype: list[dict]
         """
-        return [utilsScripts.get_per_game_from_total_stats(stat_dict) for stat_dict in self._players_all_stats_dicts]
+        return utilsScripts.get_per_game_from_total_stats(self._players_all_stats_dicts)
 
     @property
     def player_stats_dict_per_game(self):
@@ -178,36 +162,19 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return self._get_relevant_stat_dict_for_list_of_stat_dicts(self._players_all_stats_dicts_per_game)
 
     @property
-    def first_year(self):
-        """
-
-        :return: The first year that the object existed
-        :rtype: int
-        """
-        return int(self.player_df['FROM_YEAR'].item())
+    def first_year(self) -> int:
+        """ The first year that the object existed """
+        return int(self.player_info['FROM_YEAR'].item())
 
     @property
-    def last_year(self):
-        """
+    def last_year(self) -> int:
+        """ The first year that the object existed """
+        return int(self.player_info['TO_YEAR'].item())
 
-        :return: The first year that the object existed
-        :rtype: int
-        """
-        return int(self.player_df['TO_YEAR'].item())
-
-    @property
-    def stat_classes_names(self):
-        return {
+    def get_stat_classes_names(self) -> List[str]:
+        return generalStatsScripts.NBAStatObject.get_stat_classes_names(self) + [
             'demographics',
-            'career_stats',
-            'defense_dashboard',
-            'shot_chart',
-            # Common
-            'game_logs',
-            'shot_dashboard',
-            'rebound_dashboard',
-            'passing_dashboard',
-        }
+        ]
 
     @cached_property
     def demographics(self) -> CommonPlayerInfo:
@@ -217,7 +184,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return self._get_stat_class(stat_class_table_name='CommonPlayerInfo', **kwargs)
 
     @cached_property
-    def career_stats(self) -> PlayerProfileV2:
+    def year_by_year_stats(self) -> PlayerProfileV2:
         kwargs = {
             'player_id': self.id
         }
@@ -247,21 +214,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
     @cached_property
     def game_logs(self) -> PlayerGameLogs:
-        kwargs = {
-            'player_id_nullable': self.id,
-            'season_nullable': self.season,
-        }
-        return self._get_stat_class(stat_class_table_name='PlayerGameLogs', **kwargs)
-
-    @cached_property
-    def shot_dashboard(self) -> PlayerDashPtShots:
-        kwargs = {
-            'player_id': self.id,
-            # This is to get the results against every team
-            'team_id': 0,
-            'season': self.season,
-        }
-        return self._get_stat_class(stat_class_table_name='PlayerDashPtShots', **kwargs)
+        return super().game_logs
 
     @cached_property
     def rebound_dashboard(self) -> PlayerDashPtReb:
@@ -284,38 +237,29 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return self._get_stat_class(stat_class_table_name='PlayerDashPtPass', **kwargs)
 
     @cached_property
-    def regular_season_game_objects(self):
-        """
-
-        :return:
-        :rtype: list[gameScripts.NBAGamePlayer]
-        """
+    def regular_season_game_objects(self) -> List[gameScripts.NBAGamePlayer]:
         regular_season_game_objects = []
-        for game_number, game_log in enumerate(reversed(self.game_logs.player_game_logs())):
-            self.logger.info('Initializing game number %s' % (game_number + 1))
-            regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_log, initialize_stat_classes=True))
+        for game_number, game_df in self.game_logs.player_game_logs.get_data_frame().iterrows():
+            self.logger.info(f"Initializing game number {game_number + 1}")
+            # TODO - No reason for this to work with a df - used to work with dict
+            regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_df, initialize_stat_classes=True))
         return regular_season_game_objects
 
-    def is_single_team_player(self):
-        """
-
-        :return: Whether or not the player played on more then one team this season
-        :rtype: bool
-        """
+    def is_single_team_player(self) -> bool:
+        # TODO - check
+        """ Whether the player played on more than one team this season """
         return len(self._players_all_stats_dicts) == 1
 
-    def is_three_point_shooter(self, attempts_limit=50, only_recent_team=False):
+    def is_three_point_shooter(self, attempts_limit: int = 50, only_recent_team: bool = False) -> bool:
         """
 
         :param attempts_limit: attempts_limit
-        :type attempts_limit: int
         :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :type only_recent_team: bool
         :return: Whether or not a player SHOT more threes this season then the attempts_limit
-        :rtype : bool
         """
+        # TODO - check
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_df
         if stat_dict:
             try:
                 return stat_dict['FG3A'] > attempts_limit
@@ -324,31 +268,28 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         else:
             return False
 
-    def is_player_over_fga_limit(self, limit=300, only_recent_team=False):
+    def is_player_over_fga_limit(self, limit: int = 300, only_recent_team: bool = False) -> bool:
         """
 
         :param limit:
-        :type limit: int
         :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :type only_recent_team: bool
         :return: Whether the player shot more the 200 field goal attempts this season or not
-        :rtype: bool
         """
+        # TODO - check
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_df
         if stat_dict:
             return stat_dict["FGA"] > limit
         else:
             return False
 
-    def is_player_over_fga_outside_10_feet_limit(self, limit=200):
+    def is_player_over_fga_outside_10_feet_limit(self, limit: int = 200) -> bool:
         """
 
         :param limit:
-        :type limit: int
         :return: Whether the player shot more the 100 field goal attempts outside of 10 feet this season or not
-        :rtype: bool
         """
+        # TODO - check
         shot_dashboard_general_dict = self.shot_dashboard.general()
         if len(shot_dashboard_general_dict) == 0:
             return False
@@ -360,71 +301,63 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             except IndexError:
                 # If there is no dict for 'Less than 10 ft', that means all of the player's shots were outside 10 ft
                 percentage_of_outside_shots = 1
-            if self.stats_dict:
-                number_of_total_fga = self.stats_dict["FGA"]
+            if self.stats_df:
+                number_of_total_fga = self.stats_df["FGA"]
                 number_of_outside_shots = percentage_of_outside_shots * number_of_total_fga
                 return number_of_outside_shots > limit
             else:
                 return False
 
-    def is_player_over_assists_limit(self, limit=100, only_recent_team=False):
+    def is_player_over_assists_limit(self, limit: int = 100, only_recent_team: bool = False) -> bool:
         """
 
         :param limit:
-        :type limit: int
         :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :type only_recent_team: bool
         :return: Whether the player passed more the 50 assists this season or not
-        :rtype: bool
         """
+        # TODO - check
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_df
         if stat_dict:
             return stat_dict['AST'] > limit
         else:
             return False
 
-    def is_player_over_minutes_limit(self, limit, only_recent_team=False):
+    def is_player_over_minutes_limit(self, limit: int, only_recent_team: bool = False) -> bool:
         """
 
         :param limit:
-        :type limit: int
         :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :type only_recent_team: bool
         :return: Whether the player passed more the 50 assists this season or not
-        :rtype: bool
         """
+        # TODO - check
         stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_dict
+            self._players_all_stats_dicts) if only_recent_team else self.stats_df
         if stat_dict:
             return stat_dict['MIN'] > limit
         else:
             return False
 
-    def is_player_over_projected_minutes_limit(self, minutes_limit=1000):
+    def is_player_over_projected_minutes_limit(self, minutes_limit: int = 1000) -> bool:
         """
-        Returns whether or not the player is projected to pass a given minutes limit.
 
         :param minutes_limit: minutes limit (TOT)
-        :type minutes_limit: int
-        :return:
-        :rtype: bool
+        :return: Whether the player is projected to pass a given minutes limit.
         """
         return self._get_player_projected_minutes_played() > minutes_limit
 
-    def _get_player_projected_minutes_played(self):
+    def _get_player_projected_minutes_played(self) -> int:
         """
         Based on how many minutes a player already played and how many games his team has left, returns a projection of
         how many minutes the player will finish the season with.
 
         :return: A projection of how many minutes the player will finish the season with.
-        :rtype: float
         """
-        team_minutes_played = self.current_team_object.stats_dict['MIN']
-        team_games_played = self.current_team_object.stats_dict['GP']
+        team_minutes_played = self.current_team_object.stats_df['MIN']
+        team_games_played = self.current_team_object.stats_df['GP']
         team_games_remaining = 82 - team_games_played
-        player_minutes_played = self.stats_dict['MIN']
-        return player_minutes_played + (player_minutes_played / team_minutes_played) * team_games_remaining
+        player_minutes_played = self.stats_df['MIN']
+        return int(player_minutes_played + (player_minutes_played / team_minutes_played) * team_games_remaining)
 
     # BLOCKED BY NBA - No longer provide defender distance per shot
     # def _get_average_defender_distance_depending_on_shot_result(self, shot_result):
@@ -477,14 +410,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     #     """
     #     return self._get_average_defender_distance_depending_on_previous_shot_result(0)
 
-    def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result, number_of_previous_shots_to_check=1):
+    def _get_efg_percentage_depending_on_previous_shots_results(self, shot_result: int,
+                                                                number_of_previous_shots_to_check: int = 1) \
+            -> tuple[float, int]:
         """
         :param shot_result: made (1) or missed (0)
-        :type shot_result: int
         :param number_of_previous_shots_to_check: number of previous shots to check the condition on
-        :type number_of_previous_shots_to_check: int
         :return: tuple of the EFG% on shots after specific shot_result and the amount of those shots
-        :rtype: tuple(float, int)
         """
         df = self.shot_chart.shot_chart_detail.get_data_frame()
         # We don't want shots from different games counting as a shot sequence
@@ -511,48 +443,68 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             attempted_shots_num
         )
 
-    def get_efg_percentage_after_makes(self, number_of_previous_shots_to_check=1):
+    def get_efg_percentage_after_makes(self, number_of_previous_shots_to_check: int = 1) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots after makes, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         return self._get_efg_percentage_depending_on_previous_shots_results(
             shot_result=1, number_of_previous_shots_to_check=number_of_previous_shots_to_check)
 
-    def get_efg_percentage_after_misses(self, number_of_previous_shots_to_check=1):
+    def get_efg_percentage_after_misses(self, number_of_previous_shots_to_check: int = 1) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots after misses, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         return self._get_efg_percentage_depending_on_previous_shots_results(
             shot_result=0, number_of_previous_shots_to_check=number_of_previous_shots_to_check)
 
-    def _get_shooting_data_from_floor_side(self, side):
+    @staticmethod
+    def _groupby_side_of_floor(df: DataFrame) -> DataFrameGroupBy:
         """
-        Finds the logs for all the shots from a side of the floor, and returns all of the necessary data
+        Contested - defender within 4 feet
+        :return: tuple of the FG% on contested shots, and the amount of those shots.
+        :rtype: tuple(float, float)
+        """
+
+        # Define a function to categorize shot zone descriptions into three groups
+        def side_group(shot_zone_area: str):
+            if 'left' in shot_zone_area.lower():
+                return 'Left'
+            elif 'right' in shot_zone_area.lower():
+                return 'Right'
+            else:
+                return 'Center'
+
+        # Apply the function to create a new column 'DISTANCE_GROUP'
+        df['SHOT_SIDE'] = df['SHOT_ZONE_AREA'].apply(side_group)
+        # Group by 'DISTANCE_GROUP' and sum the desired categories
+        grouped_df = df.groupby('SHOT_SIDE')[['SHOT_MADE_FLAG', 'SHOT_TYPE']]
+        return grouped_df
+
+    def _get_shooting_data_from_floor_side(self, side: SIDE_OF_FLOOR) -> tuple[int, int, int]:
+        """
+        Finds the logs for all the shots from a side of the floor, and returns all the necessary data
         to calculate EFG%
 
-        :param side: Right or Left
-        :type side: str
+        :param side: Right, Left or Center
         :return: A dict with number of FG made, number of 3FG made, and number on FG attempted
-        :rtype: tuple(float, float, float)
         """
-        if side not in ['Right', 'Left']:
-            raise ValueError('Wrong param. Has to be "Right" or "Left"')
-        jump_shot_logs = [shot_log for shot_log in self.shot_chart.shot_chart_detail() if
-                          side.capitalize() in shot_log['SHOT_ZONE_AREA']]
-        made_jump_shot_logs = [shot_log for shot_log in jump_shot_logs if shot_log['SHOT_MADE_FLAG']]
-        made_3_jump_shot_logs = [shot_log for shot_log in made_jump_shot_logs if
-                                 shot_log['SHOT_TYPE'] == '3PT Field Goal']
-        return len(made_jump_shot_logs), len(made_3_jump_shot_logs), len(jump_shot_logs)
+        if side not in SIDE_OF_FLOOR:
+            raise ValueError('Wrong param. Has to be "Right", "Left", or "Center"')
+        df = self.shot_chart.shot_chart_detail.get_data_frame()
+        grouped_df = self._groupby_side_of_floor(df)
+        side_value_count = grouped_df.value_counts()[side]
 
-    def _get_efg_percentage_from_side(self, side):
+        made_shots_num = side_value_count[1].sum()
+        three_pt_made_shots_num = side_value_count[1]['3PT Field Goal']
+        attempted_shots_num = side_value_count.sum()
+
+        return made_shots_num, three_pt_made_shots_num, attempted_shots_num
+
+    def _get_efg_percentage_from_side(self, side: SIDE_OF_FLOOR) -> tuple[float, int]:
         """
 
-        :param side: Right or Left
-        :type side: str
+        :param side: Right, Left or Center
         :return: tuple of the EFG% on shots from a side of the floor, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         if side not in ['Right', 'Left']:
             raise ValueError('Wrong param. Has to be "Right" or "Left"')
@@ -562,79 +514,70 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                                             jump_shot_data[2])
         return efg_percentage, jump_shot_data[2]
 
-    def get_efg_percentage_from_right_side(self):
+    def get_efg_percentage_from_right_side(self) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots from the right side of the floor, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         return self._get_efg_percentage_from_side('Right')
 
-    def get_efg_percentage_from_left_side(self):
+    def get_efg_percentage_from_left_side(self) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots from the left side of the floor, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         return self._get_efg_percentage_from_side('Left')
 
     @must_have_one_team_wrapper
-    def _get_teammates_relevant_shooting_stats(self):
+    def _get_teammates_relevant_shooting_stats(self) -> tuple[int, int, int]:
         """
         :return: tuple of:
-        The number of field goals made by the players' teammates,
-        The number of 3 point field goals made by the players' teammates,
-        The number of field goals attempted by the players' teammates
-        :rtype: tuple(int, int, int)
+            The number of field goals made by the players' teammates,
+            The number of 3 point field goals made by the players' teammates,
+            The number of field goals attempted by the players' teammates
         """
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
 
-        if self.stats_dict:
-            player_fgm = self.stats_dict["FGM"]
-            player_fg3m = self.stats_dict["FG3M"]
-            player_fga = self.stats_dict["FGA"]
+        if self.stats_df is not None:
+            player_fgm = self.stats_df["FGM"].item()
+            player_fg3m = self.stats_df["FG3M"].item()
+            player_fga = self.stats_df["FGA"].item()
         else:
             player_fgm = 0
             player_fg3m = 0
             player_fga = 0
 
-        teammates_fgm = self.current_team_object.stats_dict['FGM'] - player_fgm
-        teammates_fg3m = self.current_team_object.stats_dict['FG3M'] - player_fg3m
-        teammates_fga = self.current_team_object.stats_dict['FGA'] - player_fga
+        teammates_fgm = self.current_team_object.stats_df['FGM'].item() - player_fgm
+        teammates_fg3m = self.current_team_object.stats_df['FG3M'].item() - player_fg3m
+        teammates_fga = self.current_team_object.stats_df['FGA'].item() - player_fga
         if teammates_fga == 0:
             return 0, 0, 0
         else:
             return teammates_fgm, teammates_fg3m, teammates_fga
 
-    def _get_teammates_efg_percentage(self):
+    def _get_teammates_efg_percentage(self) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots of teammates, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         teammates_fgm, teammates_fg3m, teammates_fga = self._get_teammates_relevant_shooting_stats()
 
-        if teammates_fga == 0:
-            return 0, 0
-        else:
-            return utilsScripts.calculate_efg_percent(teammates_fgm, teammates_fg3m, teammates_fga), teammates_fga
+        return utilsScripts.calculate_efg_percent(teammates_fgm, teammates_fg3m, teammates_fga), teammates_fga
 
-    def get_teammates_efg_percentage_from_passes(self):
+    def get_teammates_efg_percentage_from_passes(self) -> tuple[float, int]:
         """
         :return: tuple of the EFG% on shots of teammates after a pass, and the amount of those shots
-        :rtype: tuple(float, int)
         """
         return utilsScripts.get_efg_percentage_from_multiple_shot_charts(
-            self.passing_dashboard.passes_made())
+            self.passing_dashboard.passes_made.get_data_frame())
 
-    def _get_teammates_efg_percentage_without_passes(self):
+    def _get_teammates_efg_percentage_without_passes(self) -> tuple[float, int]:
         """
         :return: tuple of the FG% on shots of teammates that were not after a pass, and the amount of those shots.
-        :rtype: tuple(float, int)
         """
         teammates_fgm, teammates_fg3m, teammates_fga = self._get_teammates_relevant_shooting_stats()
         teammates_fgm_from_player_passes, teammates_fg3m_from_player_passes, teammates_fga_from_player_passes = \
             utilsScripts.get_efg_relevant_data_from_multiple_shot_charts(
-                self.passing_dashboard.passes_made())
+                self.passing_dashboard.passes_made.get_data_frame())
 
         teammates_fgm_without_player_pass = teammates_fgm - teammates_fgm_from_player_passes
         teammates_fg3m_without_player_pass = teammates_fg3m - teammates_fg3m_from_player_passes
@@ -648,13 +591,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                 teammates_fga_without_player_pass)
             return efg_percent_without_a_pass, teammates_fga_without_player_pass
 
-    def get_diff_in_teammates_efg_percentage_on_shots_from_player_passes(self):
+    def get_diff_in_teammates_efg_percentage_on_shots_from_player_passes(self) -> tuple[float, int]:
         """
 
         :return: tuple of:
-        The diff in EFG% between shots of teammates that were after a pass by him, and ones that were not.
-        The amount of the teammates shots.
-        :rtype: tuple(float, int)
+            The diff in EFG% between shots of teammates that were after a pass by him, and ones that were not.
+            The amount of the teammates shots.
         """
         teammates_efg_on_shots_after_pass_from_player, teammates_number_of_shots_after_pass_from_player = \
             self.get_teammates_efg_percentage_from_passes()
@@ -669,21 +611,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                 teammates_number_of_shots_after_pass_from_player
 
     # noinspection PyPep8Naming
-    def get_aPER(self):
-        """
-        A calculation of the aPER, which is the PER measurement BEFORE normalization.
+    def get_aPER(self) -> float:
+        """ A calculation of the aPER, which is the PER measurement BEFORE normalization """
+        # TODO - Check
+        return utilsScripts.get_aPER_from_stat_dict(self.stats_df, self.current_team_object)
 
-        :return:
-        :rtype: float
-        """
-        return utilsScripts.get_aPER_from_stat_dict(self.stats_dict, self.current_team_object)
-
-    def print_shooting_info(self):
-        """
-        Printing all the main relevant info on a player's shooting
-        :return:
-        :rtype: None
-        """
+    def print_shooting_info(self) -> None:
+        """ Printing all the main relevant info on a player's shooting """
 
         efg_after_makes = self.get_efg_percentage_after_makes
         efg_after_misses = self.get_efg_percentage_after_misses
@@ -710,24 +644,19 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                                               efg_left_side,
                                                               "%EFG on shots from the left side")
 
-    def print_passing_info(self):
-        """
-        Printing all the main relevant info on a player's passing
-        :return:
-        :rtype: None
-        """
+    def print_passing_info(self) -> None:
+        """ Printing all the main relevant info on a player's passing """
         diff_in_efg = self.get_diff_in_teammates_efg_percentage_on_shots_from_player_passes
         self.print_field_goal_percentage_in_a_given_condition(self.name,
                                                               diff_in_efg,
                                                               "- change in teammates %EFG "
                                                               "after a pass from a player")
 
-    def get_most_frequent_passer_to_player(self):
+    def get_most_frequent_passer_to_player(self) -> Optional[dict]:
         """
         A dict that represent the passing connection between the player and the player that passes him the ball the most
-        :return:
-        :rtype: dict
         """
+        # TODO - Check
         if not self.passing_dashboard.passes_received():
             self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
@@ -735,12 +664,11 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         most_frequent_assistant_dict = max(self.passing_dashboard.passes_received(), key=lambda x: x["FREQUENCY"])
         return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
 
-    def get_most_frequent_receiver_of_player_passes(self):
+    def get_most_frequent_receiver_of_player_passes(self) -> Optional[dict]:
         """
         A dict that represent the passing connection between the player and the player he passes the ball the most to
-        :return:
-        :rtype: dict
         """
+        # TODO - Check
         if not self.passing_dashboard.passes_received():
             self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
@@ -749,13 +677,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                            key=lambda x: utilsScripts.get_per_game_from_total_stats(x)["AST"])
         return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
 
-    def get_most_frequent_assister_to_player(self):
+    def get_most_frequent_assister_to_player(self) -> Optional[dict]:
         """
         A dict that represent the passing connection between the player and the player that
         passes him the most assists
-        :return:
-        :rtype: dict
         """
+        # TODO - Check
         if not self.passing_dashboard.passes_received():
             self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
@@ -764,13 +691,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                            key=lambda x: utilsScripts.get_per_game_from_total_stats(x)["AST"])
         return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
 
-    def get_most_frequent_receiver_of_player_assists(self):
+    def get_most_frequent_receiver_of_player_assists(self) -> Optional[dict]:
         """
         A dict that represent the passing connection between the player and the player that
         he passes the most assists to
-        :return:
-        :rtype: dict
         """
+        # TODO - Check
         if not self.passing_dashboard.passes_received():
             self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
                 player_name=self.name))
@@ -779,6 +705,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
 
     def _get_team_advanced_stats_with_player_on_and_off_court(self):
+        # TODO - Check
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
@@ -787,105 +714,71 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
                                                      x['VS_PLAYER_ID'] == self.id]
         return team_advanced_stats_with_player_on_court, \
-               team_advanced_stats_with_player_off_court
+            team_advanced_stats_with_player_off_court
 
-    def get_team_net_rtg_on_off_court(self):
-        """
-
-        :return: The player's current team's net rating when he's ON and OFF the court
-        :rtype: tuple(float, float)
-        """
+    def get_team_net_rtg_on_off_court(self) -> tuple[float, float]:
+        """ The player's current team's net rating when he's ON and OFF the court """
+        # TODO - Check
         team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
             self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['NET_RATING'], \
-                   team_advanced_stats_with_player_off_court[0]['NET_RATING']
+                team_advanced_stats_with_player_off_court[0]['NET_RATING']
         else:
             return 0, 0
 
-    def get_team_off_rtg_on_off_court(self):
-        """
-
-        :return: The player's current team's offensive rating when he's ON and OFF the court
-        :rtype: tuple(float, float)
-        """
+    def get_team_off_rtg_on_off_court(self) -> tuple[float, float]:
+        """ The player's current team's offensive rating when he's ON and OFF the court """
+        # TODO - Check
         team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
             self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['OFF_RATING'], \
-                   team_advanced_stats_with_player_off_court[0]['OFF_RATING']
+                team_advanced_stats_with_player_off_court[0]['OFF_RATING']
         else:
             return 0, 0
 
-    def get_team_def_rtg_on_off_court(self):
-        """
-
-        :return: The player's current team's defensive rating when he's ON and OFF the court
-        :rtype: tuple(float, float)
-        """
+    def get_team_def_rtg_on_off_court(self) -> tuple[float, float]:
+        """ The player's current team's defensive rating when he's ON and OFF the court """
+        # TODO - Check
         team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
             self._get_team_advanced_stats_with_player_on_and_off_court()
         if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
             return team_advanced_stats_with_player_on_court[0]['DEF_RATING'], \
-                   team_advanced_stats_with_player_off_court[0]['DEF_RATING']
+                team_advanced_stats_with_player_off_court[0]['DEF_RATING']
         else:
             return 0, 0
 
-    def get_team_net_rtg_on_off_court_diff(self):
-        """
-
-        :return:
-        :rtype: float
-        """
-        try:
-            on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
-        except PlayerHasNoTeam:
-            return 0
+    def get_team_net_rtg_on_off_court_diff(self) -> float:
+        # TODO - Check
+        on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
         return on_court_net_rtg - off_court_net_rtg
 
-    def get_team_off_rtg_on_off_court_diff(self):
-        """
-
-        :return:
-        :rtype: float
-        """
-        try:
-            on_court_off_rtg, off_court_off_rtg = self.get_team_off_rtg_on_off_court()
-        except PlayerHasNoTeam:
-            return 0
+    def get_team_off_rtg_on_off_court_diff(self) -> float:
+        # TODO - Check
+        on_court_off_rtg, off_court_off_rtg = self.get_team_off_rtg_on_off_court()
         return on_court_off_rtg - off_court_off_rtg
 
-    def get_team_def_rtg_on_off_court_diff(self):
-        """
-
-        :return:
-        :rtype: float
-        """
-        try:
-            on_court_def_rtg, off_court_def_rtg = self.get_team_def_rtg_on_off_court()
-        except PlayerHasNoTeam:
-            return 0
+    def get_team_def_rtg_on_off_court_diff(self) -> float:
+        # TODO - Check
+        on_court_def_rtg, off_court_def_rtg = self.get_team_def_rtg_on_off_court()
         return on_court_def_rtg - off_court_def_rtg
 
-    def get_all_time_game_objects(self, initialize_stat_classes=False):
+    def get_all_time_game_objects(self, initialize_stat_classes: bool = False) -> list[gameScripts.NBAGamePlayer]:
         """
 
-        :param initialize_stat_classes: Whether or not to initialize the stat classes for the game objects
-        :type initialize_stat_classes: bool
+        :param initialize_stat_classes: Whether to initialize the stat classes for the game objects
         :return:
-        :rtype: list[NBAGamePlayer]
         """
+        # TODO - Check
         player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
         player_all_time_game_objects = [gameScripts.NBAGamePlayer(game_log, initialize_stat_classes) for game_log in
                                         player_all_time_game_logs]
         return player_all_time_game_objects
 
-    def get_over_minutes_limit_games_per_36_stats_compared_to_other_games(self, minutes_limit=30):
-        """
-
-        :return:
-        :rtype: dict[str, dict[str, float]]
-        """
+    def get_over_minutes_limit_games_per_36_stats_compared_to_other_games(self, minutes_limit=30) -> dict[
+        str, dict[str, float]]:
+        # TODO - Check
         over_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] >= 30]
         under_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] < 30]
         return {
@@ -894,17 +787,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             ('Under %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(under_limit_game_dicts,
                                                                                       per_36=True)}
 
-    def get_teammate_cooperation_stats(self, teammate_name):
+    def get_teammate_cooperation_stats(self, teammate_name: str) -> dict[str, dict[str, float]]:
         """
         Receives a teammate's name and returns team's advanced stat dict for minutes:
         -When player AND teammate are on the floor together
         -When player is on the floor WITHOUT the teammate
-
-        :param teammate_name:
-        :type teammate_name: str
-        :return:
-        :rtype: dict[str, dict[str, float]]
         """
+        # TODO - Check
         teammate_object = self.current_team_object.get_player_object_by_name(teammate_name)
         teammate_name = teammate_object.name
         lineups_with_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self, teammate_object])
@@ -913,32 +802,27 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         stats_with_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_with_teammate)
         stats_without_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_without_teammate)
         return {
-            ('Stats With %s' % teammate_name): stats_with_teammate,
-            ('Stats Without %s' % teammate_name): stats_without_teammate}
+            f'Stats With {teammate_name}': stats_with_teammate,
+            f'Stats Without {teammate_name}': stats_without_teammate}
 
-    def get_net_rtg_with_and_without_teammate(self, teammate_name):
-        """
-
-        :param teammate_name:
-        :type teammate_name: str
-        :return:
-        :rtype: dict[str, dict[str, float]]
-        """
+    def get_net_rtg_with_and_without_teammate(self, teammate_name: str) -> tuple[float, float]:
+        # TODO - Check
         a = self.get_teammate_cooperation_stats(teammate_name)
-        return a[('Stats With %s' % teammate_name)]['NET_RATING'], a[('Stats Without %s' % teammate_name)]['NET_RATING']
+        return a[f'Stats With {teammate_name}']['NET_RATING'], a[f'Stats Without {teammate_name}']['NET_RATING']
 
 
 if __name__ == "__main__":
     players_names_list = [
         # 'rajon rondo',
         'stephen curry',
-        # 'james harden',
-        # 'lebron james',
+        'james harden',
+        'lebron james',
+        'kevin durant',
         # 'jr smith',
         # 'paul pierce',
         # 'carmelo anthony'
     ]
-    selected_season = '2020-21'
+    selected_season = '2022-23'
     for player_name_ in players_names_list:
         nba_player = NBAPlayer(name_or_id=player_name_, season=selected_season)
         nba_player.logger.info(f"Print {nba_player.name} shooting info")
