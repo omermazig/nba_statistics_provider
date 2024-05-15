@@ -1,19 +1,14 @@
 """
 NBAStatObject object and necessary imports functions and consts
 """
-from typing import Union
-
-import webbrowser
 import abc
+import webbrowser
 from functools import cached_property
-
-from nba_api.stats import endpoints
-from nba_api.stats.endpoints import PlayerDashPtShots, TeamDashPtShots
-
-import goldsberry
-# import used only for type-hinting
-# noinspection PyUnresolvedReferences
-from goldsberry.masterclass import NbaDataProvider
+from nba_api.stats.endpoints import PlayerDashPtShots, TeamDashPtShots, PlayerGameLogs, TeamGameLogs, TeamDashPtReb, \
+    PlayerDashPtReb, TeamDashPtPass, PlayerDashPtPass
+from nba_api.stats.library.parameters import SeasonTypePlayoffs
+from pandas import DataFrame
+from typing import Union
 
 import gameScripts
 import utilsScripts
@@ -98,32 +93,49 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         ]
 
     @cached_property
-    def game_logs(self):
+    def game_logs(self) -> Union[PlayerGameLogs, TeamGameLogs]:
         kwargs = {
             f'{self._object_indicator}_id_nullable': self.id,
             'season_nullable': self.season,
         }
-        return self._get_stat_class(stat_class_table_name=f'{self._object_indicator.capitalize()}GameLogs', **kwargs)
+        stat_class_class_object = PlayerGameLogs if self._object_indicator == 'player' else TeamGameLogs
+        return utilsScripts.get_stat_class(stat_class_class_object, **kwargs)
 
     @cached_property
     def shot_dashboard(self) -> Union[PlayerDashPtShots, TeamDashPtShots]:
         kwargs = {
-            'player_id': self.id,
-            # This is to get the results against every team
-            'team_id': 0,
+            'team_id': self.id if self._object_indicator == 'team' else 0,
             'season': self.season,
         }
-        return self._get_stat_class(stat_class_table_name='PlayerDashPtShots', **kwargs)
+        if self._object_indicator == 'player':
+            kwargs['player_id'] = self.id
+
+        stat_class_class_object = PlayerDashPtShots if self._object_indicator == 'player' else TeamDashPtShots
+        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
-    @abc.abstractmethod
-    def rebound_dashboard(self):
-        pass
+    def rebound_dashboard(self) -> Union[PlayerDashPtReb, TeamDashPtReb]:
+        kwargs = {
+            'team_id': self.id if self._object_indicator == 'team' else 0,
+            'season': self.season,
+        }
+        if self._object_indicator == 'player':
+            kwargs['player_id'] = self.id
+
+        stat_class_class_object = PlayerDashPtReb if self._object_indicator == 'player' else TeamDashPtReb
+        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
-    @abc.abstractmethod
-    def passing_dashboard(self):
-        pass
+    def passing_dashboard(self) -> Union[PlayerDashPtPass, TeamDashPtPass]:
+        kwargs = {
+            'team_id': self.id if self._object_indicator == 'team' else 0,
+            'season': self.season,
+        }
+        if self._object_indicator == 'player':
+            kwargs['player_id'] = self.id
+
+        stat_class_class_object = PlayerDashPtPass if self._object_indicator == 'player' else TeamDashPtPass
+        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
     @abc.abstractmethod
@@ -163,7 +175,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         :rtype: list[gameScripts.NBAGameTeam]
         """
         regular_season_game_objects = []
-        for game_number, game_log in enumerate(reversed(self.game_logs.logs())):
+        for game_number, game_log in enumerate(reversed(self.game_logs.player_game_logs.get_data_frame())):
             self.logger.info('Initializing game number %s' % (game_number + 1))
             # TODO - Make NBAGame specefically NBATeam/NBAPlayer
             regular_season_game_objects.append(gameScripts.NBAGame(game_log, initialize_stat_classes=True))
@@ -187,18 +199,8 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         """
         return "{name} Object".format(name=self.name)
 
-    @staticmethod
-    def _get_stat_class(stat_class_table_name, **kwargs):
-        with utilsScripts.gap_manager.action_gap():
-            stat_class = getattr(endpoints, stat_class_table_name)(**kwargs)
-        return stat_class
-
-    def initialize_stat_classes(self):
-        """
-        Initializing all of the classes in goldsberry_object with the id, and setting them under self
-        :return:
-        :rtype: None
-        """
+    def initialize_stat_classes(self) -> None:
+        """ Initializing all the classes in goldsberry_object with the id, and setting them under self """
         self.logger.info('Initializing stat classes for %s object..' % self.name)
 
         for stat_class_name in self.get_stat_classes_names():
@@ -290,20 +292,15 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
                     number_of_uncontested_shots_outside_10_feet + number_of_contested_shots_outside_10_feet)
             return diff_in_efg, percentage_of_contested_shots
 
-    def get_all_time_game_logs(self):
-        """
-        Returns all time game log dict objects (Regardless of defined 'season' param)
-        :return:
-        :rtype:list[dict]
-        """
+    def get_all_time_game_logs(self) -> DataFrame:
+        """ Returns all time game log df objects (Regardless of defined 'season' param) """
         all_time_game_logs = []
         for year in range(self.first_year, self.last_year + 1):
-            for season_type in [1, 2]:
+            for season_type in [SeasonTypePlayoffs.regular, SeasonTypePlayoffs.playoffs]:
                 with self.game_logs.object_manager.reinitialize_data_with_new_parameters(
-                        Season=goldsberry.apiconvertor.nba_season(year),
-                        SeasonType=goldsberry.apiconvertor.season_type(
-                            season_type)):
-                    logs_by_year_and_season_type = self.game_logs.logs()
+                        Season=utilsScripts.get_season_from_year(year),
+                        SeasonType=season_type):
+                    logs_by_year_and_season_type = self.game_logs.player_game_logs.get_data_frame()
                     logs_by_year_and_season_type.reverse()
                     all_time_game_logs += logs_by_year_and_season_type
         return all_time_game_logs

@@ -4,17 +4,16 @@ NBATeam object and necessary imports functions and consts
 import os
 from functools import cached_property
 from nba_api.stats.endpoints import TeamGameLogs, TeamYearByYearStats, TeamInfoCommon, LeagueDashPtTeamDefend, \
-    ShotChartDetail
-from nba_api.stats.library.parameters import ContextMeasureSimple
+    ShotChartDetail, CommonTeamRoster, TeamDashPtShots, TeamDashPtReb, TeamDashPtPass, TeamDashLineups, \
+    TeamPlayerOnOffSummary
+from nba_api.stats.library.parameters import ContextMeasureSimple, Season
 
-import generalStatsScripts
-import playerScripts
 import gameScripts
-import utilsScripts
+import generalStatsScripts
 import leagueScripts
+import playerScripts
+import utilsScripts
 from playersContainerScripts import PlayersContainer
-
-import goldsberry
 
 teams_id_dict = {'pistons': 1610612765,
                  'grizzlies': 1610612763,
@@ -58,7 +57,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     An object that represent a single nba team in a single season.
     """
 
-    def __init__(self, team_name_or_id, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
+    def __init__(self, team_name_or_id, season=Season.current_season, initialize_stat_classes=True,
                  initialize_game_objects=False):
         """
         NBA team object
@@ -129,6 +128,9 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     def get_stat_classes_names(self):
         return generalStatsScripts.NBAStatObject.get_stat_classes_names(self) + [
             'team_info',
+            'team_roster',
+            'lineups',
+            'on_off_court',
         ]
 
     @cached_property
@@ -154,18 +156,51 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         kwargs = {
             'team_id': self.id
         }
-        return self._get_stat_class(stat_class_table_name='TeamInfoCommon', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=TeamInfoCommon, **kwargs)
+
+    @cached_property
+    def team_roster(self) -> CommonTeamRoster:
+        kwargs = {
+            'team_id': self.id
+        }
+        return utilsScripts.get_stat_class(stat_class_class_object=CommonTeamRoster, **kwargs)
+
+    @cached_property
+    def lineups(self) -> TeamDashLineups:
+        kwargs = {
+            'team_id': self.id
+        }
+        return utilsScripts.get_stat_class(stat_class_class_object=TeamDashLineups, **kwargs)
+
+    @cached_property
+    def on_off_court(self) -> TeamPlayerOnOffSummary:
+        kwargs = {
+            'team_id': self.id
+        }
+        return utilsScripts.get_stat_class(stat_class_class_object=TeamPlayerOnOffSummary, **kwargs)
 
     @cached_property
     def year_by_year_stats(self) -> TeamYearByYearStats:
         kwargs = {
             'team_id': self.id
         }
-        return self._get_stat_class(stat_class_table_name='TeamYearByYearStats', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=TeamYearByYearStats, **kwargs)
 
     @cached_property
     def game_logs(self) -> TeamGameLogs:
         return super().game_logs
+
+    @cached_property
+    def shot_dashboard(self) -> TeamDashPtShots:
+        return super().shot_dashboard
+
+    @cached_property
+    def rebound_dashboard(self) -> TeamDashPtReb:
+        return super().rebound_dashboard
+
+    @cached_property
+    def passing_dashboard(self) -> TeamDashPtPass:
+        return super().passing_dashboard
 
     @cached_property
     def defense_dashboard(self) -> LeagueDashPtTeamDefend:
@@ -173,7 +208,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             'team_id_nullable': self.id,
             'season': self.season,
         }
-        return self._get_stat_class(stat_class_table_name='LeagueDashPtTeamDefend', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=LeagueDashPtTeamDefend, **kwargs)
 
     @cached_property
     def shot_chart(self) -> ShotChartDetail:
@@ -185,7 +220,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
             'context_measure_simple': ContextMeasureSimple.fga,
         }
-        return self._get_stat_class(stat_class_table_name='ShotChartDetail', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
 
     def _generate_current_players_objects(self, initialize_stat_classes):
         """
@@ -196,9 +231,10 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :rtype: list[playerScripts.NBAPlayer]
         """
         players_objects_list = []
-        for player_dict_on_roster in goldsberry.team.roster(team_id=self.id, season=self.season).players():
-            player_name = player_dict_on_roster['PLAYER']
-            player_id = player_dict_on_roster['PLAYER_ID']
+        for row in self.team_roster.common_team_roster.get_data_frame()[["PLAYER", "PLAYER_ID"]].itertuples(
+                index=False):
+            player_name = row.PLAYER
+            player_id = row.PLAYER_ID
             try:
                 nba_player_object = playerScripts.NBAPlayer(name_or_id=player_id,
                                                             season=self.season,
@@ -262,7 +298,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         return player_all_time_game_objects
 
     def get_pace(self):
-        return self.year_by_year_stats.overall()[0]['PACE']
+        return self.year_by_year_stats.team_stats.get_data_frame()['PACE']
 
     def get_pace_adjustment(self):
         """
@@ -278,7 +314,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: The portion of the team's field goals wich was assisted
         :rtype: float
         """
-        return self.year_by_year_stats.overall()[0]['AST_PCT']
+        return self.year_by_year_stats.team_stats.get_data_frame()['AST_PCT']
 
 
 if __name__ == "__main__":
