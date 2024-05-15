@@ -488,8 +488,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :param side: Right, Left or Center
         :return: A dict with number of FG made, number of 3FG made, and number on FG attempted
         """
-        if side not in SIDE_OF_FLOOR:
-            raise ValueError('Wrong param. Has to be "Right", "Left", or "Center"')
+        if side not in typing.get_args(SIDE_OF_FLOOR):
+            raise ValueError(f'Wrong param. "{side}" not in ["Right", "Left", "Center"]')
         df = self.shot_chart.shot_chart_detail.get_data_frame()
         grouped_df = self._groupby_side_of_floor(df)
         side_value_count = grouped_df.value_counts()[side]
