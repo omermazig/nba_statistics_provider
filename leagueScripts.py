@@ -2,22 +2,23 @@
 All objects that represent a single season of the nba. NBALeague is the basic object.
 Also contains necessary imports functions and consts.
 """
+import collections
 import datetime
-import os
-import pickle
-import time
 import functools
 import glob
-import collections
 import inspect
+import os
+import pickle
+from functools import cached_property
+from nba_api.stats.endpoints import CommonAllPlayers, LeagueDashTeamStats, SynergyPlayTypes
+from nba_api.stats.library.parameters import PlayType, Season, SeasonYear, TypeGroupingNullable
+from typing import Literal
 
 import playerScripts
-import utilsScripts
 import teamScripts
+import utilsScripts
+from my_exceptions import NoSuchTeam, TooMuchTeams
 from playersContainerScripts import PlayersContainer
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, NoSuchTeam, TooMuchTeams, PlayerHasMoreThenOneTeam, \
-    PlayerHasNoTeam
-import goldsberry
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
 
@@ -28,33 +29,30 @@ class PlayTypeLeagueAverage(object):
     """
 
     def __init__(self):
-        playtype_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.playtype) if
-                                  not stat_class1.startswith('_')]
+        playtype_classes_names = [
+            stat_class1 for stat_class1 in dir(PlayType)
+            if not (stat_class1.startswith('_') or stat_class1 == "default")
+        ]
         for playtype_class_name in playtype_classes_names:
-            value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name,
-                                                                        'offensive')
+            value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name, 'offensive')
             setattr(self, playtype_class_name, value)
 
     @staticmethod
-    def _get_ppp_league_average_for_specific_play_type(playtype_to_search, offensive_or_defensive):
+    def _get_ppp_league_average_for_specific_play_type(
+            playtype_to_search: str, offensive_or_defensive: Literal['offensive', 'defensive']
+    ) -> float:
         """
 
         :param playtype_to_search: play type description
-        :type playtype_to_search: str
         :param offensive_or_defensive: 'offensive' ot 'defensive'
-        :type offensive_or_defensive: str
         :return: PPP for play type
-        :rtype: float
         """
-        points_scored = 0
-        possessions = 0
-        playtype_object = goldsberry.playtype
-        specific_playtype_object = getattr(playtype_object, playtype_to_search)(team=True)
-        for player_playtype_offensive_dict in getattr(specific_playtype_object, offensive_or_defensive)():
-            points_scored += player_playtype_offensive_dict["Points"]
-            possessions += player_playtype_offensive_dict["Poss"]
-
-        return points_scored / possessions
+        specific_playtype_df = SynergyPlayTypes(
+            type_grouping_nullable=getattr(TypeGroupingNullable, offensive_or_defensive),
+            play_type_nullable=getattr(PlayType, playtype_to_search)
+        ).synergy_play_type.get_data_frame()
+        sums = specific_playtype_df[["PTS", "POSS"]].sum(axis=0)
+        return sums["PTS"] / sums["POSS"]
 
 
 class NBALeagues(object):
@@ -107,7 +105,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
     An object that represent a single nba season.
     """
 
-    def __init__(self, season=goldsberry.apiparams.default_season, initialize_stat_classes=True,
+    def __init__(self, season=Season.current_season, initialize_stat_classes=True,
                  initialize_team_objects=False, initialize_player_objects=False, initialize_game_objects=False):
         super().__init__()
         self.season = season
@@ -175,20 +173,31 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         """
         return self.players_on_teams_objects_list + self._players_not_on_team_objects_list
 
-    def initialize_stat_classes(self):
-        """
-        Initializing all of the classes in goldsberry.league, and setting them under self
-        :return:
-        :rtype: None
-        """
-        self.logger.info('Initializing league stat classes...')
-        public_stat_classes_names = [stat_class1 for stat_class1 in dir(goldsberry.league) if
-                                     not stat_class1.startswith('_')]
+    @staticmethod
+    def get_stat_classes_names() -> list[str]:
+        """ The stat classes available for the object """
+        return [
+            'team_stats_classic',
+        ]
 
-        for stat_class_name in public_stat_classes_names:
-            stat_class = getattr(goldsberry.league, stat_class_name)(season=self.season)
-            """:type : NbaDataProvider"""
-            setattr(self, stat_class_name, stat_class)
+    @cached_property
+    def team_stats_classic(self) -> LeagueDashTeamStats:
+        kwargs = {
+            'season': self.season,
+        }
+        return utilsScripts.get_stat_class(stat_class_class_object=LeagueDashTeamStats, **kwargs)
+
+    def initialize_stat_classes(self) -> None:
+        """ Initializing all the classes, and setting them under self """
+        self.logger.info(f'Initializing stat classes for league {self.season} object..')
+
+        for stat_class_name in self.get_stat_classes_names():
+            try:
+                # This is to force the lru property to actually cache the value.
+                getattr(self, stat_class_name)
+            except ValueError as e:
+                self.logger.warning(f"Couldn't initialize {stat_class_name} - Maybe it didn't exist in {self.season}")
+                self.logger.error(e, exc_info=True)
 
     def _initialize_players_not_on_team_objects(self, initialize_game_objects=False):
         """
@@ -197,14 +206,12 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :rtype: None
         """
         self.logger.info('Initializing players with no current team...')
-        players_not_on_team_dicts_list = [player_dict for player_dict in
-                                          goldsberry.PlayerList(season=self.season).players() if
-                                          not player_dict['TEAM_ID']]
-        # noinspection PyTypeChecker
+        players = CommonAllPlayers(season=self.season, is_only_current_season=1).common_all_players.get_data_frame()
+        players_not_on_team = players[players['ROSTER_STATUS'] == 0]
         self._players_not_on_team_objects_list = [
-            playerScripts.NBAPlayer(name_or_id=player_dict['PERSON_ID'], season=self.season,
-                                    initialize_game_objects=initialize_game_objects) for player_dict in
-            players_not_on_team_dicts_list]
+            playerScripts.NBAPlayer(player_id, self.season, initialize_game_objects)
+            for player_id in players_not_on_team['PERSON_ID']
+        ]
         for player_object in self._players_not_on_team_objects_list:
             # Cache player_stats_dict objects. a is unused
             # noinspection PyUnusedLocal
@@ -302,7 +309,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :return: The sum of all 30 teams value for the given stat key
         :rtype: float
         """
-        return utilsScripts.get_stat_summation_from_list(self.team_stats_classic.stats(), stat_key)
+        return utilsScripts.get_stat_summation_from_list(self.team_stats_classic.league_dash_team_stats(), stat_key)
 
     def get_league_classic_stat_average(self, stat_key):
         """
@@ -312,7 +319,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :return: The average value of all 30 teams for the given stat key
         :rtype: float
         """
-        return utilsScripts.get_stat_average_from_list(self.team_stats_classic.stats(), stat_key)
+        return utilsScripts.get_stat_average_from_list(self.team_stats_classic.league_dash_team_stats(), stat_key)
 
     def get_league_ppp(self):
         """
@@ -323,58 +330,34 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         """
         return self.get_league_classic_stat_sum('PTS') / self.get_league_num_of_possessions()
 
-    def get_league_defensive_reb_percentage(self):
-        """
-
-        :return: The league's percentage of defensive rebounds out of all rebounds
-        :rtype: float
-        """
+    def get_league_defensive_reb_percentage(self) -> float:
+        """ Gets the league's percentage of defensive rebounds out of all rebounds """
         d_reb = self.get_league_classic_stat_sum('DREB')
         reb = self.get_league_classic_stat_sum('REB')
         return d_reb / reb
 
-    def get_league_assist_factor(self):
-        """
-
-        :return:
-        :rtype: float
-        """
+    def get_league_assist_factor(self) -> float:
         assists = self.get_league_classic_stat_sum('AST')
         field_goals_made = self.get_league_classic_stat_sum('FGM')
         free_throws_made = self.get_league_classic_stat_sum('FTM')
         return (2 / 3) - (0.5 * (assists / field_goals_made)) / (2 * (field_goals_made / free_throws_made))
 
-    def get_league_foul_factor(self):
-        """
-
-        :return:
-        :rtype: float
-        """
+    def get_league_foul_factor(self) -> float:
         free_throws_made = self.get_league_classic_stat_sum('FTM')
         free_throws_attempted = self.get_league_classic_stat_sum('FTA')
         personal_fouls = self.get_league_classic_stat_sum('PF')
         ppp = self.get_league_ppp()
         return (free_throws_made / personal_fouls) - (0.44 * (free_throws_attempted / personal_fouls) * ppp)
 
-    def get_league_num_of_possessions(self):
-        """
-
-        :return:
-        :rtype: float
-        """
+    def get_league_num_of_possessions(self) -> float:
         offensive_possessions = 0
-        for team_stat_dict in self.team_stats_classic.stats():
+        for team_stat_dict in self.team_stats_classic.league_dash_team_stats():
             offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
         return offensive_possessions
 
-    def get_league_average_pace(self):
-        """
-
-        :return:
-        :rtype: float
-        """
+    def get_league_average_pace(self) -> float:
         offensive_possessions = 0
-        for team_stat_dict in self.team_stats_classic.stats():
+        for team_stat_dict in self.team_stats_classic.league_dash_team_stats():
             offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
         minutes_played = self.get_league_classic_stat_sum('MIN')
         return (offensive_possessions / minutes_played) * 48
@@ -400,19 +383,15 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             pickle.dump(self, file_to_write_to)
 
     @staticmethod
-    def get_cached_league_object(season=None):
+    def get_cached_league_object(season: str = SeasonYear.default) -> 'NBALeague':
         """
 
         :param season:
-        :type season: str
         :return:
-        :rtype: NBALeague
         """
-        if not season:
-            season = goldsberry.apiparams.default_season[:4]
         with open(league_object_pickle_path_regex.format(season=season), "rb") as file_to_read:
-            player_objects_2015 = pickle.load(file_to_read)
-        return player_objects_2015
+            player_objects = pickle.load(file_to_read)
+        return player_objects
 
 
 def main():
@@ -427,7 +406,7 @@ def main():
             league_year = NBALeague(initialize_stat_classes=True,
                                     initialize_player_objects=True,
                                     initialize_team_objects=True,
-                                    season=goldsberry.apiconvertor.nba_season(year))
+                                    season=utilsScripts.get_season_from_year(year))
             league_year.pickle_league_object()
 
 

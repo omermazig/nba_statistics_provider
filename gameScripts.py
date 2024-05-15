@@ -2,26 +2,29 @@
 All objects that represent an nba game. NBAGame is the basic object.
 Also contains necessary imports functions and consts
 """
-import goldsberry
-from goldsberry import apiconvertor
-from goldsberry.apiparams import default_season
+from functools import cached_property
+from nba_api.stats.endpoints import BoxScoreSummaryV2, LeagueGameLog
+from nba_api.stats.library.parameters import Season, SeasonTypeAllStar
+from pandas import DataFrame
+from typing import Optional
+
+import utilsScripts
 
 
-class NBAGame(object):
+class NBAGame(utilsScripts.Loggable):
     """
     An object that represent a single nba game.
     """
-    def __init__(self, game_dict, initialize_stat_classes=False):
+
+    def __init__(self, game_df: DataFrame, initialize_stat_classes: bool = False):
         """
 
-        :param game_dict:
-        :type game_dict: dict
+        :param game_df:
         :param initialize_stat_classes:
-        :type initialize_stat_classes: bool
         :return: an object that represent one nba game
-        :rtype : An NBA game object
         """
-        self.game_dict = game_dict
+        super().__init__()
+        self.game_dict = game_df
 
         if 'GAME_ID' in self.game_dict:
             self.game_dict['Game_ID'] = self.game_dict['GAME_ID']
@@ -36,47 +39,36 @@ class NBAGame(object):
         if initialize_stat_classes:
             self.initialize_stat_classes()
 
-    def _initialize_stat_class(self, stat_class_name):
-        """
+    @staticmethod
+    def get_stat_classes_names() -> list[str]:
+        """ The stat classes available for the object """
+        return [
+            'boxscore_summary',
+        ]
 
-        :param stat_class_name:
-        :type stat_class_name: str
-        :return:
-        :rtype: None
-        """
-        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
-        """:type : NbaDataProvider"""
-        setattr(self, stat_class_name, stat_class)
+    @cached_property
+    def boxscore_summary(self) -> BoxScoreSummaryV2:
+        kwargs = {
+            'game_id': self.game_id,
+        }
+        return utilsScripts.get_stat_class(stat_class_class_object=BoxScoreSummaryV2, **kwargs)
 
-    def initialize_stat_classes(self):
-        """
+    def initialize_stat_classes(self) -> None:
+        """ Initializing all the classes, and setting them under self """
+        self.logger.info(f'Initializing stat classes for game {self.game_id} object..')
 
-        :return:
-        :rtype: None
-        """
-        for stat_class_name in [my_stat_class for my_stat_class in dir(goldsberry.game) if
-                                not my_stat_class.startswith('_')]:
-            self._initialize_stat_class(stat_class_name)
+        for stat_class_name in self.get_stat_classes_names():
+            try:
+                # This is to force the lru property to actually cache the value.
+                getattr(self, stat_class_name)
+            except ValueError as e:
+                self.logger.warning(f"Couldn't initialize {stat_class_name} - Maybe it didn't exist")
+                self.logger.error(e, exc_info=True)
 
-    def get_broadcasting_network(self):
-        """
-
-        :return:
-        :rtype:str
-        """
-        relevant_stat_class = 'boxscore_summary'
-        if not hasattr(self, relevant_stat_class):
-            self._initialize_stat_class(relevant_stat_class)
+    def get_broadcasting_network(self) -> str:
         return self.boxscore_summary.game_summary()[0]['NATL_TV_BROADCASTER_ABBREVIATION']
 
-    def is_game_on_national_tv(self, broadcasters_list=None):
-        """
-
-        :param broadcasters_list:
-        :type broadcasters_list:list[str]
-        :return:
-        :rtype: bool
-        """
+    def is_game_on_national_tv(self, broadcasters_list: Optional[list[str]] = None) -> bool:
         if broadcasters_list is None:
             broadcasters_list = ['ESPN',
                                  'TNT',
@@ -86,17 +78,7 @@ class NBAGame(object):
                                  ]
         return self.get_broadcasting_network() in broadcasters_list
 
-    def is_team_hosting_game(self, team_id):
-        """
-
-        :param team_id:
-        :type team_id:int
-        :return:
-        :rtype:bool
-        """
-        relevant_stat_class = 'boxscore_summary'
-        if not hasattr(self, relevant_stat_class):
-            self._initialize_stat_class(relevant_stat_class)
+    def is_team_hosting_game(self, team_id: int) -> bool:
         return self.boxscore_summary.game_summary()[0]['HOME_TEAM_ID'] == team_id
 
 
@@ -104,100 +86,46 @@ class NBAGameTeam(NBAGame):
     """
     An object that represent a single nba game from a team's perspective.
     """
-    def __init__(self, game_dict, initialize_stat_classes=False):
-        NBAGame.__init__(self, game_dict, initialize_stat_classes=False)
+
+    def __init__(self, game_df, initialize_stat_classes=False):
+        super().__init__(game_df, initialize_stat_classes)
         self.team_id = self.game_dict['TEAM_ID']
-        if initialize_stat_classes:
-            self.initialize_stat_classes()
 
-    def is_home_game(self):
-        """
-
-        :return:
-        :rtype:bool
-        """
+    def is_home_game(self) -> bool:
         return self.is_team_hosting_game(self.team_id)
-
-    def _initialize_stat_class(self, stat_class_name):
-        """
-
-        :param stat_class_name:
-        :type stat_class_name: str
-        :return:
-        :rtype: None
-        """
-        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
-        """:type : NbaDataProvider"""
-        if hasattr(stat_class, 'team_stats'):
-            try:
-                stat_dict = [team_stat_dict for team_stat_dict in stat_class.team_stats() if
-                             team_stat_dict['TEAM_ID'] == self.team_id][0]
-            except IndexError:
-                stat_dict = None
-            setattr(self, stat_class_name, stat_dict)
-        else:
-            setattr(self, stat_class_name, stat_class)
 
 
 class NBAGamePlayer(NBAGame):
     """
     An object that represent a single nba game from a player's perspective.
     """
-    def __init__(self, game_dict, initialize_stat_classes=False):
-        NBAGame.__init__(self, game_dict, initialize_stat_classes=False)
+
+    def __init__(self, game_df, initialize_stat_classes=False):
+        super().__init__(game_df, initialize_stat_classes)
         self.player_id = self.game_dict['Player_ID']
-        if initialize_stat_classes:
-            self.initialize_stat_classes()
-
-    def _initialize_stat_class(self, stat_class_name):
-        """
-
-        :param stat_class_name:
-        :type stat_class_name: str
-        :return:
-        :rtype: None
-        """
-        stat_class = getattr(goldsberry.game, stat_class_name)(gameid=self.game_id)
-        """:type : NbaDataProvider"""
-        if hasattr(stat_class, 'player_stats'):
-            try:
-                stat_dict = [player_stat_dict for player_stat_dict in stat_class.player_stats() if
-                             player_stat_dict['PLAYER_ID'] == self.player_id][0]
-            except IndexError:
-                stat_dict = None
-            setattr(self, stat_class_name, stat_dict)
-        else:
-            setattr(self, stat_class_name, stat_class)
 
 
-class NBASingleSeasonGames(object):
+class NBASingleSeasonGames:
     """
     An object that represent a season of nba games
     """
-    def __init__(self, season=default_season, include_playoffs=False, include_preseason=False):
+
+    def __init__(self, season=Season.default, include_playoffs=False, include_preseason=False):
         """
         returns a list of short dict summaries for every nba game played in history
         :return:
         :rtype:NBASingleSeasonGames object
         """
-        games_objects = goldsberry.GameIDs()
-        with games_objects.object_manager.reinitialize_data_with_new_parameters(Season=season):
-            all_games_dicts = games_objects.game_list()
-
+        games_objects = LeagueGameLog(season=season)
+        all_games_df = games_objects.league_game_log.get_data_frame()
         if include_playoffs:
-            with games_objects.object_manager.reinitialize_data_with_new_parameters(
-                    Season=apiconvertor.nba_season(season),
-                    SeasonType=apiconvertor.season_type(2)):
-                playoff_games_objects = games_objects.game_list()
-            all_games_dicts += playoff_games_objects
+            playoff_games_objects = LeagueGameLog(season=season, season_type_all_star=SeasonTypeAllStar.playoffs)
+            all_games_df += playoff_games_objects.league_game_log.get_data_frame()
         if include_preseason:
-            with games_objects.object_manager.reinitialize_data_with_new_parameters(
-                    Season=apiconvertor.nba_season(season),
-                    SeasonType=apiconvertor.season_type(4)):
-                preseason_games_objects = games_objects.game_list()
-            all_games_dicts = preseason_games_objects + all_games_dicts
-        self.games_objects = [NBAGame(game_dict) for game_dict in all_games_dicts]
-        """:type : list[NBAGame]"""
+            preseason_games_objects = LeagueGameLog(season=season, season_type_all_star=SeasonTypeAllStar.preseason)
+            all_games_df += preseason_games_objects.league_game_log.get_data_frame()
+
+        self.games_objects: list[NBAGame] = [NBAGame(game_dict) for game_dict in all_games_df]
 
     def get_specific_team_home_games(self, team_id):
         """

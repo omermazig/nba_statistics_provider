@@ -1,21 +1,21 @@
 """
 NBAPlayer object and necessary imports functions and consts
 """
-from typing import Union, Optional, List, Literal
-
+import typing
 from functools import cached_property
 from nba_api.stats.endpoints import PlayerDashPtShotDefend, PlayerProfileV2, CommonPlayerInfo, ShotChartDetail, \
-    PlayerGameLogs, PlayerDashPtReb, PlayerDashPtPass
+    PlayerGameLogs, PlayerDashPtReb, PlayerDashPtPass, PlayerDashPtShots
 from nba_api.stats.library.parameters import ContextMeasureSimple, Season
 from nba_api.stats.static.players import find_players_by_full_name
 from pandas import DataFrame
 from pandas.core.groupby import DataFrameGroupBy
+from typing import Union, Optional, List, Literal
 
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
+import gameScripts
 import generalStatsScripts
 import teamScripts
-import gameScripts
 import utilsScripts
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
 
 SIDE_OF_FLOOR = Literal['Right', 'Left', 'Center']
 
@@ -181,14 +181,14 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         kwargs = {
             'player_id': self.id
         }
-        return self._get_stat_class(stat_class_table_name='CommonPlayerInfo', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=CommonPlayerInfo, **kwargs)
 
     @cached_property
     def year_by_year_stats(self) -> PlayerProfileV2:
         kwargs = {
             'player_id': self.id
         }
-        return self._get_stat_class(stat_class_table_name='PlayerProfileV2', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=PlayerProfileV2, **kwargs)
 
     @cached_property
     def defense_dashboard(self) -> PlayerDashPtShotDefend:
@@ -198,7 +198,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             'team_id': 0,
             'season': self.season,
         }
-        return self._get_stat_class(stat_class_table_name='PlayerDashPtShotDefend', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=PlayerDashPtShotDefend, **kwargs)
 
     @cached_property
     def shot_chart(self) -> ShotChartDetail:
@@ -210,31 +210,23 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
             'context_measure_simple': ContextMeasureSimple.fga,
         }
-        return self._get_stat_class(stat_class_table_name='ShotChartDetail', **kwargs)
+        return utilsScripts.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
 
     @cached_property
     def game_logs(self) -> PlayerGameLogs:
         return super().game_logs
 
     @cached_property
+    def shot_dashboard(self) -> PlayerDashPtShots:
+        return super().shot_dashboard
+
+    @cached_property
     def rebound_dashboard(self) -> PlayerDashPtReb:
-        kwargs = {
-            'player_id': self.id,
-            # This is to get the results against every team
-            'team_id': 0,
-            'season': self.season,
-        }
-        return self._get_stat_class(stat_class_table_name='PlayerDashPtReb', **kwargs)
+        return super().rebound_dashboard
 
     @cached_property
     def passing_dashboard(self) -> PlayerDashPtPass:
-        kwargs = {
-            'player_id': self.id,
-            # This is to get the results against every team
-            'team_id': 0,
-            'season': self.season,
-        }
-        return self._get_stat_class(stat_class_table_name='PlayerDashPtPass', **kwargs)
+        return super().passing_dashboard
 
     @cached_property
     def regular_season_game_objects(self) -> List[gameScripts.NBAGamePlayer]:
@@ -284,13 +276,9 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return False
 
     def is_player_over_fga_outside_10_feet_limit(self, limit: int = 200) -> bool:
-        """
-
-        :param limit:
-        :return: Whether the player shot more the 100 field goal attempts outside of 10 feet this season or not
-        """
+        """ Whether the player shot more the 100 field goal attempts outside 10 feet this season or not """
         # TODO - check
-        shot_dashboard_general_dict = self.shot_dashboard.general()
+        shot_dashboard_general_dict = self.shot_dashboard.general_shooting()
         if len(shot_dashboard_general_dict) == 0:
             return False
         else:
@@ -709,10 +697,14 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
-        team_advanced_stats_with_player_on_court = [x for x in self.current_team_object.on_off_court.on_court() if
-                                                    x['VS_PLAYER_ID'] == self.id]
-        team_advanced_stats_with_player_off_court = [x for x in self.current_team_object.on_off_court.off_court() if
-                                                     x['VS_PLAYER_ID'] == self.id]
+        team_advanced_stats_with_player_on_court = [
+            x for x in self.current_team_object.on_off_court.players_on_court_team_player_on_off_summary()
+            if x['VS_PLAYER_ID'] == self.id
+        ]
+        team_advanced_stats_with_player_off_court = [
+            x for x in self.current_team_object.on_off_court.players_off_court_team_player_on_off_summary()
+            if x['VS_PLAYER_ID'] == self.id
+        ]
         return team_advanced_stats_with_player_on_court, \
             team_advanced_stats_with_player_off_court
 

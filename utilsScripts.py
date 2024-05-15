@@ -1,16 +1,19 @@
 """
 All sort of util functions to help other classes with calculations
 """
-import functools
-import os
-import csv
 import collections
+import csv
+import functools
+import logging
+import os
 import sys
 import time
-import logging
-
 from contextlib import contextmanager
+# This import is only for type hinting, so I don't care it's private
+# noinspection PyProtectedMember
+from nba_api.stats.endpoints._base import Endpoint
 from pandas import DataFrame
+from typing import TypeVar
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -269,7 +272,7 @@ def convert_dicts_into_csv(dicts_to_convert, primary_key, csv_path):
     :param csv_path: Path to the output csv file
     :type csv_path: str
     """
-    if not type(dicts_to_convert) == list:
+    if not isinstance(dicts_to_convert, list):
         raise Exception('Has to be a list of dicts')
     with open(csv_path, 'w') as csvfile:
         fieldnames = list(dicts_to_convert[0].keys())
@@ -439,7 +442,7 @@ def get_pace_from_stat_dict(stat_dict):
 def _get_list_of_players_ids_from_lineup_dict(lineup_dict_to_convert):
     """
     Name
-    :param lineup_dict_to_convert: Lineup dict from goldsberry
+    :param lineup_dict_to_convert: Lineup dict
     :type lineup_dict_to_convert: dict
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
@@ -568,6 +571,16 @@ def get_aPER_from_stat_dict(stat_df: DataFrame, team_object) -> float:
     return uPER * pace_adjustment
 
 
+def get_season_from_year(year: int) -> str:
+    """
+    Get string for the season ('2023-24') from a year (2023)
+
+    :param year: The year
+    :return: The season string
+    """
+    return "{}-{}".format(year, str(year + 1)[2:])
+
+
 class ActionGapManager:
     """ This is due to the NBA API blocking us if we make requests too frequently. It's a cooldown mechanism"""
 
@@ -596,3 +609,11 @@ class ActionGapManager:
 # This is for not overloading the NBA API and getting blocked
 nba_api_cooldown = 0.6
 gap_manager = ActionGapManager(gap=nba_api_cooldown)
+
+T = TypeVar("T", bound=Endpoint)
+
+
+def get_stat_class(stat_class_class_object: type[T], **kwargs) -> T:
+    with gap_manager.action_gap():
+        stat_class = stat_class_class_object(**kwargs)
+    return stat_class
