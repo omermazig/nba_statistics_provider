@@ -15,7 +15,8 @@ import gameScripts
 import generalStatsScripts
 import teamScripts
 import utilsScripts
-from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam
+from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerHasMoreThenOneTeam, NoStatDf, \
+    NoStatDashboard
 
 SIDE_OF_FLOOR = Literal['Right', 'Left', 'Center']
 
@@ -202,6 +203,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
     @cached_property
     def shot_chart(self) -> ShotChartDetail:
+        if int(self.season[:4]) < 1996:
+            raise NoStatDashboard(f'No shot dashboard in {self.season[:4]} - Only since 2013')
         kwargs = {
             'player_id': self.id,
             # This is to get the results against every team
@@ -230,101 +233,59 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
     @cached_property
     def regular_season_game_objects(self) -> List[gameScripts.NBAGamePlayer]:
+        # TODO - No reason for this to work with a df - used to work with dict
         regular_season_game_objects = []
         for game_number, game_df in self.game_logs.player_game_logs.get_data_frame().iterrows():
             self.logger.info(f"Initializing game number {game_number + 1}")
-            # TODO - No reason for this to work with a df - used to work with dict
             regular_season_game_objects.append(gameScripts.NBAGamePlayer(game_df, initialize_stat_classes=True))
         return regular_season_game_objects
 
     def is_single_team_player(self) -> bool:
-        # TODO - check
         """ Whether the player played on more than one team this season """
         return len(self._players_all_stats_dicts) == 1
 
-    def is_three_point_shooter(self, attempts_limit: int = 50, only_recent_team: bool = False) -> bool:
-        """
-
-        :param attempts_limit: attempts_limit
-        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :return: Whether or not a player SHOT more threes this season then the attempts_limit
-        """
-        # TODO - check
-        stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_df
-        if stat_dict:
-            try:
-                return stat_dict['FG3A'] > attempts_limit
-            except IndexError:
-                return False
-        else:
-            return False
-
-    def is_player_over_fga_limit(self, limit: int = 300, only_recent_team: bool = False) -> bool:
-        """
-
-        :param limit:
-        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :return: Whether the player shot more the 200 field goal attempts this season or not
-        """
-        # TODO - check
-        stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_df
-        if stat_dict:
-            return stat_dict["FGA"] > limit
-        else:
-            return False
-
     def is_player_over_fga_outside_10_feet_limit(self, limit: int = 200) -> bool:
         """ Whether the player shot more the 100 field goal attempts outside 10 feet this season or not """
-        # TODO - check
-        shot_dashboard_general_dict = self.shot_dashboard.general_shooting()
-        if len(shot_dashboard_general_dict) == 0:
+        shot_df = self.shot_dashboard.general_shooting.get_data_frame()
+        if len(shot_df) == 0:
             return False
         else:
-            try:
-                percentage_of_inside_shots = \
-                    [i for i in shot_dashboard_general_dict if i['SHOT_TYPE'] == 'Less than 10 ft'][0]['FGA_FREQUENCY']
-                percentage_of_outside_shots = 1 - percentage_of_inside_shots
-            except IndexError:
-                # If there is no dict for 'Less than 10 ft', that means all of the player's shots were outside 10 ft
-                percentage_of_outside_shots = 1
-            if self.stats_df:
-                number_of_total_fga = self.stats_df["FGA"]
-                number_of_outside_shots = percentage_of_outside_shots * number_of_total_fga
+            inside_shots = shot_df[shot_df['SHOT_TYPE'] == 'Less than 10 ft']['FGA_FREQUENCY'].item()
+            if self.stats_df is not None:
+                number_of_total_fga = self.stats_df["FGA"].item()
+                number_of_outside_shots = number_of_total_fga - inside_shots
                 return number_of_outside_shots > limit
             else:
                 return False
 
-    def is_player_over_assists_limit(self, limit: int = 100, only_recent_team: bool = False) -> bool:
+    def is_player_over_stat_limit(self, stat_to_check: str, limit: int, only_recent_team: bool = False) -> bool:
         """
 
-        :param limit:
+        :param stat_to_check: Stat category to check the value in
+        :param limit: Limit to compare the stat to
         :param only_recent_team: Whether to check only the player's stats on his recent team or not.
         :return: Whether the player passed more the 50 assists this season or not
         """
-        # TODO - check
         stat_dict = utilsScripts.get_most_recent_stat_dict(
             self._players_all_stats_dicts) if only_recent_team else self.stats_df
-        if stat_dict:
-            return stat_dict['AST'] > limit
+        if stat_dict is not None:
+            return stat_dict[stat_to_check].item() > limit
         else:
-            return False
+            raise NoStatDf(f'No stat df for {self.name}')
+
+    def is_player_over_assists_limit(self, limit: int = 100, only_recent_team: bool = False) -> bool:
+        return self.is_player_over_stat_limit(stat_to_check='AST', limit=limit, only_recent_team=only_recent_team)
 
     def is_player_over_minutes_limit(self, limit: int, only_recent_team: bool = False) -> bool:
-        """
+        return self.is_player_over_stat_limit(stat_to_check='MIN', limit=limit, only_recent_team=only_recent_team)
 
-        :param limit:
-        :param only_recent_team: Whether to check only the player's stats on his recent team or not.
-        :return: Whether the player passed more the 50 assists this season or not
-        """
-        # TODO - check
-        stat_dict = utilsScripts.get_most_recent_stat_dict(
-            self._players_all_stats_dicts) if only_recent_team else self.stats_df
-        if stat_dict:
-            return stat_dict['MIN'] > limit
-        else:
-            return False
+    def is_player_over_fga_limit(self, limit: int = 300, only_recent_team: bool = False) -> bool:
+        return self.is_player_over_stat_limit(stat_to_check='FGA', limit=limit, only_recent_team=only_recent_team)
+
+    def is_three_point_shooter(self, attempts_limit: int = 50, only_recent_team: bool = False) -> bool:
+        return self.is_player_over_stat_limit(
+            stat_to_check='FG3A', limit=attempts_limit, only_recent_team=only_recent_team
+        )
 
     def is_player_over_projected_minutes_limit(self, minutes_limit: int = 1000) -> bool:
         """
@@ -341,10 +302,10 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
         :return: A projection of how many minutes the player will finish the season with.
         """
-        team_minutes_played = self.current_team_object.stats_df['MIN']
-        team_games_played = self.current_team_object.stats_df['GP']
+        team_minutes_played = self.current_team_object.game_logs.team_game_logs.get_data_frame()['MIN'].sum()
+        team_games_played = self.current_team_object.stats_df['GP'].item()
         team_games_remaining = 82 - team_games_played
-        player_minutes_played = self.stats_df['MIN']
+        player_minutes_played = self.stats_df['MIN'].item()
         return int(player_minutes_played + (player_minutes_played / team_minutes_played) * team_games_remaining)
 
     # BLOCKED BY NBA - No longer provide defender distance per shot
@@ -494,8 +455,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         :param side: Right, Left or Center
         :return: tuple of the EFG% on shots from a side of the floor, and the amount of those shots
         """
-        if side not in ['Right', 'Left']:
-            raise ValueError('Wrong param. Has to be "Right" or "Left"')
+        if side not in typing.get_args(SIDE_OF_FLOOR):
+            raise ValueError(f'Wrong param. "{side}" not in ["Right", "Left", "Center"]')
         jump_shot_data = self._get_shooting_data_from_floor_side(side)
         efg_percentage = utilsScripts.calculate_efg_percent(jump_shot_data[0],
                                                             jump_shot_data[1],
