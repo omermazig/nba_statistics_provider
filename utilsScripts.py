@@ -13,7 +13,7 @@ from contextlib import contextmanager
 # noinspection PyProtectedMember
 from nba_api.stats.endpoints._base import Endpoint
 from pandas import DataFrame
-from typing import TypeVar
+from typing import TypeVar, Optional
 
 pickles_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonPickles')
 csvs_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csvs')
@@ -505,22 +505,21 @@ def is_lineup_valid(lineup_dict, white_list, black_list):
         return False
 
 
-def get_most_recent_stat_dict(stats_df: DataFrame):
+def get_most_recent_stat_dict(stats_df: DataFrame) -> Optional[DataFrame]:
     """
     Returns the TOTAL stat dict if the player played for only one team, and THE STAT DICT FOR THE LATEST TEAM if the
     player played for more then one team.
 
     :param stats_df: List of all the stat dicts. Length could be 1 (one team) or 3+ (2+ team and TOTAL)
-    :return: The desired stat dict
-    :rtype: dict
+    :return: The desired stat df
     """
-    # TODO - Fix to df
     if len(stats_df) == 0:
         return None
     elif len(stats_df) == 1:
-        return stats_df[0]
+        return stats_df
     else:
-        return stats_df[-2]
+        # Last one is TOT, so the one before
+        return stats_df[stats_df['TEAM_ABBREVIATION'] == 'TOT']
 
 
 # noinspection PyPep8Naming
