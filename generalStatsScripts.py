@@ -12,6 +12,7 @@ from typing import Union
 
 import gameScripts
 import utilsScripts
+from my_exceptions import NoStatDashboard
 
 
 class NBAStatObject(abc.ABC, utilsScripts.Loggable):
@@ -103,6 +104,8 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
 
     @cached_property
     def shot_dashboard(self) -> Union[PlayerDashPtShots, TeamDashPtShots]:
+        if int(self.season[:4]) < 2013:
+            raise NoStatDashboard(f'No shot dashboard in {self.season[:4]} - Only since 2013')
         kwargs = {
             'team_id': self.id if self._object_indicator == 'team' else 0,
             'season': self.season,

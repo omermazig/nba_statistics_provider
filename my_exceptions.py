@@ -83,3 +83,13 @@ class PlayerObjectAreNotSet(Exception):
     """
     def __init__(self, message=''):
         self.message = message
+
+
+class NoStatDf(Exception):
+    def __init__(self, message=''):
+        self.message = message
+
+
+class NoStatDashboard(Exception):
+    def __init__(self, message=''):
+        self.message = message
