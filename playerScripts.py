@@ -92,7 +92,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return self.player_info["PLAYERCODE"].item()
 
     @cached_property
-    def current_team_object(self) -> Optional[teamScripts.NBATeam]:
+    def current_team_object(self):
         """ A generated object for the team that the player is currently playing for """
         if self.team_id:
             return teamScripts.NBATeam(self.team_id, season=self.season)
