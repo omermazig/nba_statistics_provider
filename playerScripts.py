@@ -1,13 +1,16 @@
 """
 NBAPlayer object and necessary imports functions and consts
 """
+import itertools
 import typing
 from functools import cached_property
+
+import pandas as pd
 from nba_api.stats.endpoints import PlayerDashPtShotDefend, PlayerProfileV2, CommonPlayerInfo, ShotChartDetail, \
     PlayerGameLogs, PlayerDashPtReb, PlayerDashPtPass, PlayerDashPtShots
-from nba_api.stats.library.parameters import ContextMeasureSimple, Season
-from nba_api.stats.static.players import find_players_by_full_name
-from pandas import DataFrame
+from nba_api.stats.library.parameters import ContextMeasureSimple, Season, MeasureTypeDetailedDefense
+from nba_api.stats.static.players import find_players_by_full_name, find_player_by_id
+from pandas import DataFrame, Series
 from pandas.core.groupby import DataFrameGroupBy
 from typing import Union, Optional, List, Literal
 
@@ -19,6 +22,8 @@ from my_exceptions import NoSuchPlayer, TooMuchPlayers, PlayerHasNoTeam, PlayerH
     NoStatDashboard
 
 SIDE_OF_FLOOR = Literal['Right', 'Left', 'Center']
+PASS_OR_ASSIST = Literal['PASS', 'ASSIST']
+TO_OR_FROM = Literal['TO', 'FROM']
 
 
 def must_have_one_team_wrapper(func1):
@@ -96,7 +101,9 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
     def current_team_object(self):
         """ A generated object for the team that the player is currently playing for """
         if self.team_id:
-            return teamScripts.NBATeam(self.team_id, season=self.season)
+            return teamScripts.NBATeam(
+                self.team_id, season=self.season, initialize_stat_classes=self._initialize_stat_classes
+            )
         else:
             return None
 
@@ -193,6 +200,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
 
     @cached_property
     def defense_dashboard(self) -> PlayerDashPtShotDefend:
+        if int(self.season[:4]) < 2013:
+            raise NoStatDashboard(f'No defense dashboard in {self.season[:4]} - Only since 2013')
         kwargs = {
             'player_id': self.id,
             # This is to get the results against every team
@@ -549,15 +558,11 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         teammates_efg_on_shots_after_pass_from_player, teammates_number_of_shots_after_pass_from_player = \
             self.get_teammates_efg_percentage_from_passes()
-        if teammates_number_of_shots_after_pass_from_player == 0:
-            return 0, 0
-        else:
-            teammates_efg_on_shots_not_after_pass_from_player, teammates_number_of_shots_not_after_pass_from_player = \
-                self._get_teammates_efg_percentage_without_passes()
-            if teammates_number_of_shots_not_after_pass_from_player == 0:
-                return 0, 0
-            return teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player, \
-                teammates_number_of_shots_after_pass_from_player
+        teammates_efg_on_shots_not_after_pass_from_player, teammates_number_of_shots_not_after_pass_from_player = \
+            self._get_teammates_efg_percentage_without_passes()
+        diff = teammates_efg_on_shots_after_pass_from_player - teammates_efg_on_shots_not_after_pass_from_player
+        shots = teammates_number_of_shots_after_pass_from_player + teammates_number_of_shots_not_after_pass_from_player
+        return diff, shots
 
     # noinspection PyPep8Naming
     def get_aPER(self) -> float:
@@ -601,119 +606,84 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                                               "- change in teammates %EFG "
                                                               "after a pass from a player")
 
-    def get_most_frequent_passer_to_player(self) -> Optional[dict]:
+    def _get_most_cooperative_teammate(self, pass_or_assist: PASS_OR_ASSIST, to_or_from: TO_OR_FROM):
         """
-        A dict that represent the passing connection between the player and the player that passes him the ball the most
+        A df that represent the passing/assisting connection between the player and the player that
+        passes him/received passes from him the most
         """
-        # TODO - Check
-        if not self.passing_dashboard.passes_received():
-            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
-                player_name=self.name))
+        if to_or_from == 'TO':
+            df = self.passing_dashboard.passes_made.get_data_frame()
+        elif to_or_from == 'FROM':
+            df = self.passing_dashboard.passes_received.get_data_frame()
+        else:
+            raise Exception(f'{to_or_from} is not a valid option. Only {typing.get_args(TO_OR_FROM)}')
+
+        if df.empty:
+            self.logger.warning(f'{self.name} does not have any FG from {pass_or_assist}. returning None...')
             return None
-        most_frequent_assistant_dict = max(self.passing_dashboard.passes_received(), key=lambda x: x["FREQUENCY"])
-        return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
+
+        if pass_or_assist == 'PASS':
+            most_frequent_teammate_df = df.loc[df['PASS'].idxmax()]
+        elif pass_or_assist == 'ASSIST':
+            most_frequent_teammate_df = df.loc[df['AST'].idxmax()]
+        else:
+            raise Exception(f'{pass_or_assist} is not a valid option. Only {typing.get_args(PASS_OR_ASSIST)}')
+
+        if len(most_frequent_teammate_df) > 1:
+            self.logger.warning(f'{self.name} has multiple teammates tied in passes to him')
+        return most_frequent_teammate_df
+
+    def get_most_frequent_passer_to_player(self) -> Optional[DataFrame]:
+        return self._get_most_cooperative_teammate('PASS', 'FROM')
 
     def get_most_frequent_receiver_of_player_passes(self) -> Optional[dict]:
-        """
-        A dict that represent the passing connection between the player and the player he passes the ball the most to
-        """
-        # TODO - Check
-        if not self.passing_dashboard.passes_received():
-            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
-                player_name=self.name))
-            return None
-        most_frequent_assistant_dict = max(self.passing_dashboard.passes_made(),
-                                           key=lambda x: utilsScripts.get_per_game_from_total_stats(x)["AST"])
-        return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
+        return self._get_most_cooperative_teammate('PASS', 'TO')
 
     def get_most_frequent_assister_to_player(self) -> Optional[dict]:
-        """
-        A dict that represent the passing connection between the player and the player that
-        passes him the most assists
-        """
-        # TODO - Check
-        if not self.passing_dashboard.passes_received():
-            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
-                player_name=self.name))
-            return None
-        most_frequent_assistant_dict = max(self.passing_dashboard.passes_received(),
-                                           key=lambda x: utilsScripts.get_per_game_from_total_stats(x)["AST"])
-        return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
+        return self._get_most_cooperative_teammate('ASSIST', 'FROM')
 
     def get_most_frequent_receiver_of_player_assists(self) -> Optional[dict]:
-        """
-        A dict that represent the passing connection between the player and the player that
-        he passes the most assists to
-        """
-        # TODO - Check
-        if not self.passing_dashboard.passes_received():
-            self.logger.warning('{player_name} does not have any FG from passes. returning None...'.format(
-                player_name=self.name))
-            return None
-        most_frequent_assistant_dict = max(self.passing_dashboard.passes_made(), key=lambda x: x["FREQUENCY"])
-        return utilsScripts.get_per_game_from_total_stats(most_frequent_assistant_dict)
+        return self._get_most_cooperative_teammate('ASSIST', 'TO')
 
-    def _get_team_advanced_stats_with_player_on_and_off_court(self):
-        # TODO - Check
+    def _get_team_on_and_off_stats_for_player(self) -> DataFrame:
         if self.current_team_object is None:
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
-        team_advanced_stats_with_player_on_court = [
-            x for x in self.current_team_object.on_off_court.players_on_court_team_player_on_off_summary()
-            if x['VS_PLAYER_ID'] == self.id
-        ]
-        team_advanced_stats_with_player_off_court = [
-            x for x in self.current_team_object.on_off_court.players_off_court_team_player_on_off_summary()
-            if x['VS_PLAYER_ID'] == self.id
-        ]
-        return team_advanced_stats_with_player_on_court, \
-            team_advanced_stats_with_player_off_court
+        on_court_df = self.current_team_object.on_off_court.players_on_court_team_player_on_off_summary.get_data_frame()
+        team_advanced_stats_with_player_on_court = on_court_df[on_court_df['VS_PLAYER_ID'] == self.id]
+        off_court_df = self.current_team_object.on_off_court.players_off_court_team_player_on_off_summary.get_data_frame()
+        team_advanced_stats_with_player_off_court = off_court_df[off_court_df['VS_PLAYER_ID'] == self.id]
 
-    def get_team_net_rtg_on_off_court(self) -> tuple[float, float]:
-        """ The player's current team's net rating when he's ON and OFF the court """
-        # TODO - Check
-        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
-            self._get_team_advanced_stats_with_player_on_and_off_court()
-        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
-            return team_advanced_stats_with_player_on_court[0]['NET_RATING'], \
-                team_advanced_stats_with_player_off_court[0]['NET_RATING']
-        else:
-            return 0, 0
+        return pd.concat([team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court])
 
-    def get_team_off_rtg_on_off_court(self) -> tuple[float, float]:
-        """ The player's current team's offensive rating when he's ON and OFF the court """
-        # TODO - Check
-        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
-            self._get_team_advanced_stats_with_player_on_and_off_court()
-        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
-            return team_advanced_stats_with_player_on_court[0]['OFF_RATING'], \
-                team_advanced_stats_with_player_off_court[0]['OFF_RATING']
-        else:
-            return 0, 0
+    def get_team_stat_on_off_court(self, stat_key: str) -> Series:
+        """
+        The player's current team's stats when he's ON and OFF the court
 
-    def get_team_def_rtg_on_off_court(self) -> tuple[float, float]:
-        """ The player's current team's defensive rating when he's ON and OFF the court """
-        # TODO - Check
-        team_advanced_stats_with_player_on_court, team_advanced_stats_with_player_off_court = \
-            self._get_team_advanced_stats_with_player_on_and_off_court()
-        if team_advanced_stats_with_player_off_court and team_advanced_stats_with_player_on_court:
-            return team_advanced_stats_with_player_on_court[0]['DEF_RATING'], \
-                team_advanced_stats_with_player_off_court[0]['DEF_RATING']
-        else:
-            return 0, 0
+        :param stat_key: Stat to check
+        :return: The player's current team's stats when he's ON and OFF the court
+        """
+        df = self._get_team_on_and_off_stats_for_player()
+        return df[stat_key]
+
+    def get_team_net_rtg_on_off_court(self):
+        return self.get_team_stat_on_off_court('NET_RATING')
+
+    def get_team_off_rtg_on_off_court(self):
+        return self.get_team_stat_on_off_court('OFF_RATING')
+
+    def get_team_def_rtg_on_off_court(self):
+        return self.get_team_stat_on_off_court('DEF_RATING')
 
     def get_team_net_rtg_on_off_court_diff(self) -> float:
-        # TODO - Check
         on_court_net_rtg, off_court_net_rtg = self.get_team_net_rtg_on_off_court()
         return on_court_net_rtg - off_court_net_rtg
 
     def get_team_off_rtg_on_off_court_diff(self) -> float:
-        # TODO - Check
         on_court_off_rtg, off_court_off_rtg = self.get_team_off_rtg_on_off_court()
         return on_court_off_rtg - off_court_off_rtg
 
     def get_team_def_rtg_on_off_court_diff(self) -> float:
-        # TODO - Check
         on_court_def_rtg, off_court_def_rtg = self.get_team_def_rtg_on_off_court()
         return on_court_def_rtg - off_court_def_rtg
 
@@ -729,8 +699,8 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
                                         player_all_time_game_logs]
         return player_all_time_game_objects
 
-    def get_over_minutes_limit_games_per_36_stats_compared_to_other_games(self, minutes_limit=30) -> dict[
-        str, dict[str, float]]:
+    def get_over_minutes_limit_games_per_36_stats_compared_to_other_games(self, minutes_limit=30) \
+            -> dict[str, dict[str, float]]:
         # TODO - Check
         over_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] >= 30]
         under_limit_game_dicts = [game_log for game_log in self.game_logs.player_game_logs() if game_log['MIN'] < 30]
@@ -740,28 +710,48 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             ('Under %s minutes' % minutes_limit): utilsScripts.join_single_game_stats(under_limit_game_dicts,
                                                                                       per_36=True)}
 
-    def get_teammate_cooperation_stats(self, teammate_name: str) -> dict[str, dict[str, float]]:
+    def get_teammates_cooperation_stats(self, teammate_ids: set[int]) -> DataFrame:
         """
         Receives a teammate's name and returns team's advanced stat dict for minutes:
         -When player AND teammate are on the floor together
         -When player is on the floor WITHOUT the teammate
         """
-        # TODO - Check
-        teammate_object = self.current_team_object.get_player_object_by_name(teammate_name)
-        teammate_name = teammate_object.name
-        lineups_with_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self, teammate_object])
-        lineups_without_teammate = self.current_team_object.get_filtered_lineup_dicts(white_list=[self],
-                                                                                      black_list=[teammate_object])
-        stats_with_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_with_teammate)
-        stats_without_teammate = utilsScripts.join_advanced_lineup_dicts(lineups_without_teammate)
-        return {
-            f'Stats With {teammate_name}': stats_with_teammate,
-            f'Stats Without {teammate_name}': stats_without_teammate}
+        # Get the lineups. Important to do this once and pass it, for cases with multiple teammates
+        with self.current_team_object.reinitialize_class_with_new_parameters(
+                'lineups', measure_type_detailed_defense=MeasureTypeDetailedDefense.advanced
+        ):
+            lineups_df = self.current_team_object.lineups.lineups.get_data_frame()
 
-    def get_net_rtg_with_and_without_teammate(self, teammate_name: str) -> tuple[float, float]:
-        # TODO - Check
-        a = self.get_teammate_cooperation_stats(teammate_name)
-        return a[f'Stats With {teammate_name}']['NET_RATING'], a[f'Stats Without {teammate_name}']['NET_RATING']
+        teammates_to_stats = {}
+        for num_with_player in range(len(teammate_ids) + 1):
+            for teammates_ids_subset in itertools.combinations(teammate_ids, num_with_player):
+                on_teammates_ids = set(teammates_ids_subset)
+                off_teammates_ids = teammate_ids - on_teammates_ids
+                lineups_with_teammate = self.current_team_object.get_filtered_lineup_df(
+                    lineups_df=lineups_df, ids_white_list={self.id} | on_teammates_ids, ids_black_list=off_teammates_ids
+                )
+
+                stats_with_teammates = utilsScripts.join_advanced_lineup_df(lineups_with_teammate)
+                teammates_in_lineups = [
+                    find_player_by_id(teammate_id)['full_name'] for teammate_id in teammates_ids_subset
+                ]
+                teammates_not_in_lineups = [
+                    find_player_by_id(teammate_id)['full_name']
+                    for teammate_id in teammate_ids - set(teammates_ids_subset)
+                ]
+                with_teammates_string = f"With {', '.join(teammates_in_lineups)}. " if teammates_in_lineups else ""
+                without_teammates_string = f"Without {', '.join(teammates_not_in_lineups)}." if teammates_not_in_lineups else ""
+                teammate_names_string = with_teammates_string + without_teammates_string
+                teammates_to_stats[teammate_names_string] = stats_with_teammates
+        return pd.concat(
+            teammates_to_stats.values(),
+            keys=teammates_to_stats.keys(),
+            names=['Source']
+        )
+
+    def get_net_rtg_with_and_without_teammate(self, teammate_id: int) -> tuple[float, float]:
+        a = self.get_teammates_cooperation_stats({teammate_id})
+        return a.iloc[1]['NET_RATING'], a.iloc[0]['NET_RATING']
 
 
 if __name__ == "__main__":
