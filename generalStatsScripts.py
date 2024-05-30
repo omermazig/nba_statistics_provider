@@ -3,6 +3,7 @@ NBAStatObject object and necessary imports functions and consts
 """
 import abc
 import webbrowser
+from contextlib import contextmanager
 from functools import cached_property
 from nba_api.stats.endpoints import PlayerDashPtShots, TeamDashPtShots, PlayerGameLogs, TeamGameLogs, TeamDashPtReb, \
     PlayerDashPtReb, TeamDashPtPass, PlayerDashPtPass
@@ -12,6 +13,7 @@ from typing import Union
 
 import gameScripts
 import utilsScripts
+from utilsScripts import T
 from my_exceptions import NoStatDashboard
 
 
@@ -20,13 +22,15 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
     An abstract class that gathers functions that uses elements that are common for a number of object,
     like player or team
     """
-    def __init__(self, season, initialize_stat_classes, initialize_game_objects):
+    def __init__(self, season: str, initialize_stat_classes, initialize_game_objects):
         super().__init__()
         self.season = season
-        """:type : str"""
-        if initialize_stat_classes:
+        self._additional_parameters = {}
+        self._initialize_stat_classes = initialize_stat_classes
+        self._initialize_game_objects = initialize_game_objects
+        if self._initialize_stat_classes:
             self.initialize_stat_classes()
-        if initialize_game_objects:
+        if self._initialize_game_objects:
             # Cache game objects. a is unused
             # noinspection PyUnusedLocal
             a = self.regular_season_game_objects
@@ -40,6 +44,22 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         :rtype: str
         """
         pass
+
+    @contextmanager
+    def reinitialize_class_with_new_parameters(self, stat_class_name: str, **kwargs):
+        original_stat_class_dict = self.__dict__.pop(stat_class_name, None)
+        try:
+            self._additional_parameters |= kwargs
+            # This assignment is just for re-cacheing
+            # noinspection PyUnusedLocal
+            new_stat_class = getattr(self, stat_class_name)
+            yield
+        finally:
+            self._additional_parameters = {}
+            if original_stat_class_dict:
+                self.__dict__[stat_class_name] = original_stat_class_dict
+            else:
+                self.__dict__.pop(stat_class_name)
 
     @property
     @abc.abstractmethod
@@ -93,6 +113,13 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             'shot_chart',
         ]
 
+    def get_stat_class(
+            self, stat_class_class_object: type[T], custom_filters: list[tuple[str, str, str]] = None, **kwargs
+    ) -> T:
+        return utilsScripts.get_stat_class(
+            stat_class_class_object, custom_filters, **(kwargs | self._additional_parameters)
+        )
+
     @cached_property
     def game_logs(self) -> Union[PlayerGameLogs, TeamGameLogs]:
         kwargs = {
@@ -100,7 +127,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             'season_nullable': self.season,
         }
         stat_class_class_object = PlayerGameLogs if self._object_indicator == 'player' else TeamGameLogs
-        return utilsScripts.get_stat_class(stat_class_class_object, **kwargs)
+        return self.get_stat_class(stat_class_class_object, **kwargs)
 
     @cached_property
     def shot_dashboard(self) -> Union[PlayerDashPtShots, TeamDashPtShots]:
@@ -114,7 +141,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             kwargs['player_id'] = self.id
 
         stat_class_class_object = PlayerDashPtShots if self._object_indicator == 'player' else TeamDashPtShots
-        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
+        return self.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
     def rebound_dashboard(self) -> Union[PlayerDashPtReb, TeamDashPtReb]:
@@ -126,10 +153,12 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             kwargs['player_id'] = self.id
 
         stat_class_class_object = PlayerDashPtReb if self._object_indicator == 'player' else TeamDashPtReb
-        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
+        return self.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
     def passing_dashboard(self) -> Union[PlayerDashPtPass, TeamDashPtPass]:
+        if int(self.season[:4]) < 2013:
+            raise NoStatDashboard(f'No passing dashboard in {self.season[:4]} - Only since 2013')
         kwargs = {
             'team_id': self.id if self._object_indicator == 'team' else 0,
             'season': self.season,
@@ -138,7 +167,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             kwargs['player_id'] = self.id
 
         stat_class_class_object = PlayerDashPtPass if self._object_indicator == 'player' else TeamDashPtPass
-        return utilsScripts.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
+        return self.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
     @abc.abstractmethod

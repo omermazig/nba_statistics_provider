@@ -150,46 +150,36 @@ def join_single_game_stats(game_logs_list, per_36=False):
         for game_log in game_logs_to_remove:
             game_logs_list.remove(game_log)
 
-    combined_game_stats = join_stat_dicts(game_logs_list, keys_to_discard, keys_to_sum, keys_to_take_first,
-                                          percentage_keys_to_create_back)
+    combined_game_stats = join_stat_df(game_logs_list, keys_to_discard, keys_to_sum, keys_to_take_first,
+                                       percentage_keys_to_create_back)
     return combined_game_stats
 
 
-def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_take_first=None,
-                    percentage_keys_to_create_back=None, wage_key=None):
-    """
-
-    :param dicts_list:
-    :type dicts_list: list[dict]
-    :param keys_to_discard:
-    :type keys_to_discard: list[str]
-    :param keys_to_sum:
-    :type keys_to_sum: list[str]
-    :param keys_to_take_first:
-    :type keys_to_take_first: list[str]
-    :param percentage_keys_to_create_back:
-    :type percentage_keys_to_create_back: list[str]
-    :param wage_key:
-    :type wage_key: str
-    :return: A dict with the calculated stats for all the dicts
-    :rtype: dict
-    """
+def join_stat_df(
+        df: DataFrame,
+        keys_to_discard: Optional[list[str]] = None,
+        keys_to_sum: Optional[list[str]] = None,
+        keys_to_take_first: Optional[list[str]] = None,
+        percentage_keys_to_create_back: Optional[list[str]] = None,
+        wage_key: str = None
+) -> DataFrame:
+    # TODO - Check!
     keys_to_discard = [] if keys_to_discard is None else keys_to_discard
     keys_to_sum = [] if keys_to_sum is None else keys_to_sum
     keys_to_take_first = [] if keys_to_take_first is None else keys_to_take_first
     percentage_keys_to_create_back = [] if percentage_keys_to_create_back is None else percentage_keys_to_create_back
 
-    number_of_dicts = len(dicts_list)
+    number_of_entries = len(df)
 
-    if not dicts_list:
-        return dicts_list
+    if df.empty:
+        return df
 
     dict1 = {}
-    for key in dicts_list[0].keys():
+    for key in df.columns:
         dict1[key] = []
 
-    for game_log in dicts_list:
-        for key, value in game_log.items():
+    for _, row in df.iterrows():
+        for key, value in row.items():
             dict1[key].append(value)
 
     dict2 = {}
@@ -199,19 +189,19 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
             dict2[key] = None
         if key in keys_to_discard or key.endswith('RANK'):  # Ranks averages are useless, so we discard them.
             # dict1.pop(key)
-            pass
+            continue
         elif key in keys_to_take_first:
             dict2[key] = value[0]
         elif key in keys_to_sum:
+            # Can't use "sum" cause WL are strings
             dict2['TOTAL_' + key] = functools.reduce(lambda x, y: x + y, value)
-        # Can't use "sum" cause WL are strings
         elif key not in percentage_keys_to_create_back and key is not wage_key:
             if wage_key is None:
                 dict2[key] = functools.reduce(lambda x, y: x + y, value) / float(len(value))
             else:
                 numerator = 0
                 divisor = 0
-                for index in range(number_of_dicts):
+                for index in range(number_of_entries):
                     numerator += value[index] * dict1[wage_key][index]
                     divisor += dict1[wage_key][index]
                 dict2[key] = numerator / divisor if divisor != 0 else 0
@@ -230,19 +220,12 @@ def join_stat_dicts(dicts_list, keys_to_discard=None, keys_to_sum=None, keys_to_
         dict2['TOTAL_W'] = wins_and_losses.count('W')
         dict2['TOTAL_L'] = wins_and_losses.count('L')
 
-    dict2['NUM_OF_ITEMS'] = number_of_dicts
+    dict2['NUM_OF_ITEMS'] = number_of_entries
 
-    return dict2
+    return DataFrame({k: [v] for k, v in dict2.items()})
 
 
-def join_advanced_lineup_dicts(lineup_dicts):
-    """
-
-    :param lineup_dicts:
-    :type lineup_dicts:list[dict]
-    :return:
-    :rtype: dict
-    """
+def join_advanced_lineup_df(lineups_df: DataFrame) -> DataFrame:
     keys_to_discard = ['W',
                        'W_PCT',
                        'L',
@@ -253,14 +236,10 @@ def join_advanced_lineup_dicts(lineup_dicts):
                        ]
     keys_to_sum = ['MIN']
 
-    for lineup_dict in lineup_dicts:
-        number_of_possessions = (lineup_dict['MIN'] / 48) * lineup_dict['PACE']
-        lineup_dict['POS'] = number_of_possessions
-
-    if not lineup_dicts:
-        return dict()
+    if lineups_df.empty:
+        return lineups_df
     else:
-        return join_stat_dicts(lineup_dicts, keys_to_discard=keys_to_discard, keys_to_sum=keys_to_sum, wage_key='POS')
+        return join_stat_df(lineups_df, keys_to_discard=keys_to_discard, keys_to_sum=keys_to_sum, wage_key='POSS')
 
 
 def convert_dicts_into_csv(dicts_to_convert, primary_key, csv_path):
@@ -417,15 +396,13 @@ def get_stat_average_from_list(stat_dicts, stat_key):
     return get_stat_summation_from_list(stat_dicts, stat_key) / 30.0
 
 
-def get_num_of_possessions_from_stat_dict(stat_dict):
+def get_num_of_possessions_from_stat_dict(stat_df) -> float:
     """
 
-    :param stat_dict: A stat dict. Can be for a player, a team or a game (and etc)
-    :type stat_dict: dict
-    :return: The number of possessions in the event which the dict represents
-    :rtype: float
+    :param stat_df: A stat df. Can be for players, teams, leagues or games
+    :return: The number of possessions in the events which the df represents
     """
-    return stat_dict['FGA'] - stat_dict['OREB'] + stat_dict['TOV'] + (0.44 * stat_dict['FTA'])
+    return (stat_df['FGA'] - stat_df['OREB'] + stat_df['TOV'] + (0.44 * stat_df['FTA'])).sum()
 
 
 def get_pace_from_stat_dict(stat_dict):
@@ -439,67 +416,58 @@ def get_pace_from_stat_dict(stat_dict):
     return get_num_of_possessions_from_stat_dict(stat_dict) / stat_dict['MIN']
 
 
-def _get_list_of_players_ids_from_lineup_dict(lineup_dict_to_convert):
+def _get_list_of_players_ids_from_lineup_df(lineup_dict_to_convert: DataFrame) -> set[int]:
     """
     Name
     :param lineup_dict_to_convert: Lineup dict
-    :type lineup_dict_to_convert: dict
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
-    return [int(player_id) for player_id in lineup_dict_to_convert['GROUP_ID'].split('-') if player_id]
+    return {int(player_id) for player_id in lineup_dict_to_convert['GROUP_ID'].split('-') if player_id}
 
 
-def _get_list_of_players_ids_from_players_object_list(players_object_list):
+def _get_list_of_players_ids_from_players_object_list(players_ids: list[int]):
     """
     Name
-    :param players_object_list: List of players object list
-    :type players_object_list: list[playerScripts.NBAPlayer]
+    :param players_ids: List of players object list
+    :type players_ids: list[playerScripts.NBAPlayer]
     :return: All 5 player ids of players in the lineup
     :rtype: list[int]
     """
-    return [player_object.id for player_object in players_object_list]
+    return [player_object.id for player_object in players_ids]
 
 
-def _does_lineup_contains_players_from_list(lineup_dict, players_object_list, check_all_players):
+def _does_lineup_contains_players_from_list(
+        lineup_df: DataFrame, players_ids: set[int], check_all_players: bool) -> bool:
     """
-    Return whether or not there's a player from a list in a lineup
-    :param lineup_dict:
-    :type lineup_dict: dict
-    :param players_object_list:
-    :type players_object_list: list[playerScripts.NBAPlayer]
+    Return whether there's a player from a list in a lineup
+    :param lineup_df:
+    :param players_ids:
     :param check_all_players: Is single player's appearance in the lineup enough to return to determine result
-    :type check_all_players: bool
     :return:
-    :rtype: bool
     """
 
-    lineup_players_ids_list = _get_list_of_players_ids_from_lineup_dict(lineup_dict)
-    listed_players_ids_list = _get_list_of_players_ids_from_players_object_list(players_object_list)
+    lineup_players_ids_list = _get_list_of_players_ids_from_lineup_df(lineup_df)
     if check_all_players:
-        return set(lineup_players_ids_list).issuperset(listed_players_ids_list)
+        return lineup_players_ids_list.issuperset(players_ids)
     else:
-        return bool(set(lineup_players_ids_list).intersection(listed_players_ids_list))
+        return bool(lineup_players_ids_list.intersection(players_ids))
 
 
-def is_lineup_valid(lineup_dict, white_list, black_list):
+def is_lineup_valid(lineup_row: DataFrame, ids_white_list: set[int], ids_black_list: set[int]) -> bool:
     """
     Both lists empty - Every lineup is good
     Only white list full - If all players from white list in lineup
     Only black list full - If all players in black list not in lineup
     Both lists full - If all players from white list in lineup, and all players in black list not in lineup
-    :param lineup_dict:
-    :type lineup_dict: dict
-    :param white_list:
-    :type white_list: list[playerScripts.NBAPlayer]
-    :param black_list:
-    :type black_list: list[playerScripts.NBAPlayer]
+    :param lineup_row:
+    :param ids_white_list:
+    :param ids_black_list:
     :return:
-    :rtype: bool
     """
-    if _does_lineup_contains_players_from_list(lineup_dict, black_list, check_all_players=False):
+    if _does_lineup_contains_players_from_list(lineup_row, ids_black_list, check_all_players=False):
         return False
-    elif white_list is [] or _does_lineup_contains_players_from_list(lineup_dict, white_list, check_all_players=True):
+    elif ids_white_list is [] or _does_lineup_contains_players_from_list(lineup_row, ids_white_list, check_all_players=True):
         return True
     else:
         return False
@@ -532,22 +500,22 @@ def get_aPER_from_stat_dict(stat_df: DataFrame, team_object) -> float:
     :return: The aPER, which is the PER measurement BEFORE normalization.
     """
     # TODO - Check
-    MIN = stat_df['MIN']
-    FG3M = stat_df['FG3M']
-    AST = stat_df['AST']
-    FGM = stat_df['FGM']
-    FTM = stat_df['FTM']
-    TOV = stat_df['TOV']
-    FGA = stat_df['FGA']
-    FTA = stat_df['FTA']
-    REB = stat_df['REB']
-    OREB = stat_df['OREB']
-    STL = stat_df['STL']
-    BLK = stat_df['BLK']
-    PF = stat_df['PF']
+    MIN = stat_df['MIN'].item()
+    FG3M = stat_df['FG3M'].item()
+    AST = stat_df['AST'].item()
+    FGM = stat_df['FGM'].item()
+    FTM = stat_df['FTM'].item()
+    TOV = stat_df['TOV'].item()
+    FGA = stat_df['FGA'].item()
+    FTA = stat_df['FTA'].item()
+    REB = stat_df['REB'].item()
+    OREB = stat_df['OREB'].item()
+    STL = stat_df['STL'].item()
+    BLK = stat_df['BLK'].item()
+    PF = stat_df['PF'].item()
 
-    team_ast_percentage = team_object.get_assist_percentage()
-    pace_adjustment = team_object.get_pace_adjustment()
+    team_ast_percentage = team_object.get_assist_percentage().item()
+    pace_adjustment = team_object.get_pace_adjustment().item()
 
     league_ast_factor = team_object.current_league_object.get_league_assist_factor()
     league_ppp = team_object.current_league_object.get_league_ppp()
@@ -612,7 +580,14 @@ gap_manager = ActionGapManager(gap=nba_api_cooldown)
 T = TypeVar("T", bound=Endpoint)
 
 
-def get_stat_class(stat_class_class_object: type[T], **kwargs) -> T:
+def get_stat_class(stat_class_class_object: type[T], custom_filters: list[tuple[str, str, str]] = None, **kwargs) -> T:
     with gap_manager.action_gap():
-        stat_class = stat_class_class_object(**kwargs)
+        stat_class = stat_class_class_object(get_request=False, **kwargs)
+        if custom_filters:
+            raise Exception(
+                "Custom Filters dont work. Don't know why. Check https://github.com/swar/nba_api/issues/445 for more"
+            )
+            # noinspection PyUnreachableCode
+            stat_class.parameters["CF"] = ":".join("*".join(custom_filter) for custom_filter in custom_filters)
+        stat_class.get_request()
     return stat_class

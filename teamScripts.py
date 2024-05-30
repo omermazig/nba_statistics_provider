@@ -3,16 +3,20 @@ NBATeam object and necessary imports functions and consts
 """
 import os
 from functools import cached_property
+from typing import Optional
+
 from nba_api.stats.endpoints import TeamGameLogs, TeamYearByYearStats, TeamInfoCommon, LeagueDashPtTeamDefend, \
     ShotChartDetail, CommonTeamRoster, TeamDashPtShots, TeamDashPtReb, TeamDashPtPass, TeamDashLineups, \
     TeamPlayerOnOffSummary
-from nba_api.stats.library.parameters import ContextMeasureSimple, Season
+from nba_api.stats.library.parameters import ContextMeasureSimple, Season, MeasureTypeDetailedDefense
+from pandas import DataFrame
 
 import gameScripts
 import generalStatsScripts
 import leagueScripts
 import playerScripts
 import utilsScripts
+from my_exceptions import NoStatDashboard
 from playersContainerScripts import PlayersContainer
 
 teams_id_dict = {'pistons': 1610612765,
@@ -140,7 +144,11 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return:A generated object for the team that the player is currently playing for
         :rtype: leagueScripts.NBALeague
         """
-        return leagueScripts.NBALeague(season=self.season)
+        return leagueScripts.NBALeague(
+            season=self.season,
+            initialize_stat_classes=self._initialize_stat_classes,
+            initialize_game_objects=self._initialize_game_objects
+        )
 
     @cached_property
     def current_players_objects(self):
@@ -154,37 +162,48 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     @cached_property
     def team_info(self) -> TeamInfoCommon:
         kwargs = {
-            'team_id': self.id
+            'team_id': self.id,
+            'season_nullable': self.season
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=TeamInfoCommon, **kwargs)
+        return self.get_stat_class(stat_class_class_object=TeamInfoCommon, **kwargs)
 
     @cached_property
     def team_roster(self) -> CommonTeamRoster:
         kwargs = {
-            'team_id': self.id
+            'team_id': self.id,
+            'season': self.season
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=CommonTeamRoster, **kwargs)
+        return self.get_stat_class(stat_class_class_object=CommonTeamRoster, **kwargs)
 
     @cached_property
     def lineups(self) -> TeamDashLineups:
+        # TODO - THIS IS WRONG - Because I can only get 250 lineups at a time. Find a way to fix.
         kwargs = {
-            'team_id': self.id
+            'team_id': self.id,
+            'season': self.season
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=TeamDashLineups, **kwargs)
+        # custom_filters = [
+        #     ("MIN", "LE", "0"),
+        # ]
+        # return self.get_stat_class(stat_class_class_object=TeamDashLineups, custom_filters=custom_filters, **kwargs)
+        return self.get_stat_class(stat_class_class_object=TeamDashLineups, **kwargs)
 
     @cached_property
     def on_off_court(self) -> TeamPlayerOnOffSummary:
+        if int(self.season[:4]) < 2007:
+            raise NoStatDashboard(f'No on-off data in {self.season[:4]} - Only since 2013')
         kwargs = {
-            'team_id': self.id
+            'team_id': self.id,
+            'season': self.season
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=TeamPlayerOnOffSummary, **kwargs)
+        return self.get_stat_class(stat_class_class_object=TeamPlayerOnOffSummary, **kwargs)
 
     @cached_property
     def year_by_year_stats(self) -> TeamYearByYearStats:
         kwargs = {
             'team_id': self.id
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=TeamYearByYearStats, **kwargs)
+        return self.get_stat_class(stat_class_class_object=TeamYearByYearStats, **kwargs)
 
     @cached_property
     def game_logs(self) -> TeamGameLogs:
@@ -208,7 +227,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             'team_id_nullable': self.id,
             'season': self.season,
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=LeagueDashPtTeamDefend, **kwargs)
+        return self.get_stat_class(stat_class_class_object=LeagueDashPtTeamDefend, **kwargs)
 
     @cached_property
     def shot_chart(self) -> ShotChartDetail:
@@ -220,7 +239,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
             'context_measure_simple': ContextMeasureSimple.fga,
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
+        return self.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
 
     def _generate_current_players_objects(self, initialize_stat_classes):
         """
@@ -249,27 +268,35 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
                 raise e
         return players_objects_list
 
-    def get_filtered_lineup_dicts(self, lineups_list=None, white_list=None, black_list=None):
+    def get_filtered_lineup_df(
+            self,
+            lineups_df: DataFrame = DataFrame(),
+            ids_white_list: Optional[set[int]] = None,
+            ids_black_list: Optional[set[int]] = None
+    ) -> DataFrame:
         """
 
-        :param lineups_list: lineups list to filter valid lineups from. If None, uses all team's lineups from reg season
-        :type lineups_list: list[dict]
-        :param white_list: player objects white list
-        :type white_list: list[playerScripts.NBAPlayer]
-        :param black_list: player objects black list
-        :type black_list: list[playerScripts.NBAPlayer]
+        :param lineups_df: lineups list to filter valid lineups from. If None, uses all team's lineups from reg season
+        :param ids_white_list: player objects white list
+        :param ids_black_list: player objects black list
         :return: Filtered dict based on the parameters given
-        :rtype: list[dict]
         """
-        if not white_list:
-            white_list = []
-        if not black_list:
-            black_list = []
+        if not ids_white_list:
+            ids_white_list = set()
+        if not ids_black_list:
+            ids_black_list = set()
 
-        if not lineups_list:
-            lineups_list = self.lineups.lineups()
-        return [lineup_dict for lineup_dict in lineups_list if
-                utilsScripts.is_lineup_valid(lineup_dict, white_list, black_list)]
+        if lineups_df.empty:
+            with self.reinitialize_class_with_new_parameters(
+                    'lineups', measure_type_detailed_defense=MeasureTypeDetailedDefense.advanced
+            ):
+                lineups_df = self.lineups.lineups.get_data_frame()
+        valid_lineups_idx = (
+            lineups_df.apply(
+                lambda lineup_row: utilsScripts.is_lineup_valid(lineup_row, ids_white_list, ids_black_list), axis=1
+            )
+        )
+        return lineups_df[valid_lineups_idx]
 
     def get_all_shooters_lineup_dicts(self, attempts_limit=50):
         """
@@ -279,9 +306,9 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return:
         :rtype: list[dict]
         """
-        non_shooter_player_objects = [player_object for player_object in self.current_players_objects
-                                      if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)]
-        all_shooters_lineup_dicts = self.get_filtered_lineup_dicts(black_list=non_shooter_player_objects)
+        non_shooter_player_ids = {player_object.id for player_object in self.current_players_objects
+                                  if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)}
+        all_shooters_lineup_dicts = self.get_filtered_lineup_df(ids_black_list=non_shooter_player_ids)
         return all_shooters_lineup_dicts
 
     def get_all_time_game_objects(self, initialize_stat_classes=False):
@@ -306,15 +333,15 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: League's pace divided by team's pace. Used for PER calculation
         :rtype: float
         """
-        return self.current_league_object.get_league_average_pace() / self.get_pace()
+        pace_def = self.current_league_object.get_league_pace_info()
+        league_pace = (pace_def["POSS"].sum()/pace_def["MIN"].sum())*48
+        team_pace = pace_def[pace_def["TEAM_ID"] == self.id]["PACE"]
+        return league_pace/team_pace
 
-    def get_assist_percentage(self):
-        """
-
-        :return: The portion of the team's field goals wich was assisted
-        :rtype: float
-        """
-        return self.year_by_year_stats.team_stats.get_data_frame()['AST_PCT']
+    def get_assist_percentage(self) -> float:
+        """ The portion of the team's field goals which was assisted """
+        df = self.stats_df
+        return df['AST']/df['FGM']
 
 
 if __name__ == "__main__":
