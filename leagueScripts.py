@@ -9,10 +9,14 @@ import glob
 import inspect
 import os
 import pickle
+from contextlib import contextmanager
 from functools import cached_property
 from nba_api.stats.endpoints import CommonAllPlayers, LeagueDashTeamStats, SynergyPlayTypes
-from nba_api.stats.library.parameters import PlayType, Season, SeasonYear, TypeGroupingNullable
+from nba_api.stats.library.parameters import PlayType, Season, SeasonYear, TypeGroupingNullable, \
+    MeasureTypeDetailedDefense
 from typing import Literal
+
+from pandas import DataFrame
 
 import playerScripts
 import teamScripts
@@ -109,6 +113,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                  initialize_team_objects=False, initialize_player_objects=False, initialize_game_objects=False):
         super().__init__()
         self.season = season
+        self._additional_parameters = {}
         self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
         self.team_objects_list = []
         """:type : list[teamScripts.NBATeam]"""
@@ -180,12 +185,31 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             'team_stats_classic',
         ]
 
+    def get_stat_class(self, stat_class_class_object: type[utilsScripts.T], **kwargs) -> utilsScripts.T:
+        return utilsScripts.get_stat_class(stat_class_class_object, **(kwargs | self._additional_parameters))
+
+    @contextmanager
+    def reinitialize_class_with_new_parameters(self, stat_class_name: str, **kwargs):
+        original_stat_class_dict = self.__dict__.pop(stat_class_name, None)
+        try:
+            self._additional_parameters |= kwargs
+            # This assignment is just for re-cacheing
+            # noinspection PyUnusedLocal
+            new_stat_class = getattr(self, stat_class_name)
+            yield
+        finally:
+            self._additional_parameters = {}
+            if original_stat_class_dict:
+                self.__dict__[stat_class_name] = original_stat_class_dict
+            else:
+                self.__dict__.pop(stat_class_name)
+
     @cached_property
     def team_stats_classic(self) -> LeagueDashTeamStats:
         kwargs = {
             'season': self.season,
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=LeagueDashTeamStats, **kwargs)
+        return self.get_stat_class(stat_class_class_object=LeagueDashTeamStats, **kwargs)
 
     def initialize_stat_classes(self) -> None:
         """ Initializing all the classes, and setting them under self """
@@ -266,7 +290,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             team_object in self.team_objects_list]
         for team_id, team_all_shooters_lineups_dicts in teams_all_shooters_lineup_dicts:
             team_name = teamScripts.teams_name_dict[team_id]
-            league_all_shooters_lineups_dicts[team_name] = utilsScripts.join_advanced_lineup_dicts(
+            league_all_shooters_lineups_dicts[team_name] = utilsScripts.join_advanced_lineup_df(
                 team_all_shooters_lineups_dicts)
         return league_all_shooters_lineups_dicts
 
@@ -301,15 +325,13 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         players_name_and_result.sort(key=lambda x: x[1], reverse=True)
         return players_name_and_result
 
-    def get_league_classic_stat_sum(self, stat_key):
+    def get_league_classic_stat_sum(self, stat_key: str) -> float:
         """
 
         :param stat_key: The stat to check
-        :type stat_key: str
         :return: The sum of all 30 teams value for the given stat key
-        :rtype: float
         """
-        return utilsScripts.get_stat_summation_from_list(self.team_stats_classic.league_dash_team_stats(), stat_key)
+        return self.team_stats_classic.league_dash_team_stats.get_data_frame()[stat_key].sum().item()
 
     def get_league_classic_stat_average(self, stat_key):
         """
@@ -349,18 +371,18 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         ppp = self.get_league_ppp()
         return (free_throws_made / personal_fouls) - (0.44 * (free_throws_attempted / personal_fouls) * ppp)
 
-    def get_league_num_of_possessions(self) -> float:
-        offensive_possessions = 0
-        for team_stat_dict in self.team_stats_classic.league_dash_team_stats():
-            offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
-        return offensive_possessions
+    def get_league_num_of_possessions(self) -> int:
+        pace_df = self.get_league_pace_info()
+        return int(pace_df["POSS"].sum())
 
-    def get_league_average_pace(self) -> float:
-        offensive_possessions = 0
-        for team_stat_dict in self.team_stats_classic.league_dash_team_stats():
-            offensive_possessions += utilsScripts.get_num_of_possessions_from_stat_dict(team_stat_dict)
-        minutes_played = self.get_league_classic_stat_sum('MIN')
-        return (offensive_possessions / minutes_played) * 48
+    def get_league_pace_info(self) -> DataFrame:
+        with self.reinitialize_class_with_new_parameters(
+                'team_stats_classic', measure_type_detailed_defense=MeasureTypeDetailedDefense.advanced
+        ):
+            df = self.team_stats_classic.league_dash_team_stats.get_data_frame()
+        pace_df = df[['TEAM_ID', 'POSS', 'MIN']].copy()
+        pace_df['PACE'] = (pace_df["POSS"]/pace_df["MIN"]) * 48
+        return pace_df
 
     def print_league_playtype_point_per_possession(self):
         """
