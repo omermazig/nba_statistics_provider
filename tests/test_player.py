@@ -1,43 +1,15 @@
 import numpy as np
 import pytest
-from _pytest.fixtures import FixtureRequest, SubRequest
 from nba_api.stats.library.parameters import Season
 from nba_api.stats.static.players import find_player_by_id, find_players_by_full_name
 
 from my_exceptions import NoStatDashboard
 from playerScripts import NBAPlayer, PASS_OR_ASSIST, TO_OR_FROM
-
-players_to_team_count = {
-    ("Kevin Durant", '2022-23'): 2,  # Traded once mid-season
-    ("Isaiah Thomas", '2021-22'): 3,  # Signed by 3 different teams
-    ("Stephen Curry", '2021-22'): 1,  # No trades
-    ("Lebron James", '2013-14'): 1,  # Traded twice mid-season
-    ("Mike Bibby", '2010-11'): 3,  # Traded twice mid-season
-    ("Mark Jackson", '1996-97'): 2,  # Idiot
-    ("Michael Jordan", '1992-93'): 1,  # GOAT
-    ("Larry Bird", '1985-86'): 1,  # White Hope
-    ("Kareem Abdul-Jabbar", '1980-81'): 1,  # Cap
-}
-
-
-@pytest.fixture(scope="module",
-                ids=[key[0] for key in players_to_team_count.keys()],
-                params=(
-                        players_to_team_count.keys()
-                ))
-def player_object(request: SubRequest) -> NBAPlayer:
-    player_name, season = request.param
-    yield NBAPlayer(name_or_id=player_name, season=season, initialize_stat_classes=False, initialize_game_objects=False)
-
-
-def test_stat_dict_sanity(player_object):
-    assert player_object.stats_df["GP"].item() >= player_object.stats_df["GS"].item()
-    for prefix in ["FG", "FG3", "FT"]:
-        assert player_object.stats_df[f"{prefix}A"].item() >= player_object.stats_df[f"{prefix}M"].item()
+from tests.conftest import PLAYERS_TO_TEAM_COUNT
 
 
 def test_stat_dict_count(request, player_object):
-    team_count = players_to_team_count[request.node.callspec.params['player_object']]
+    team_count = PLAYERS_TO_TEAM_COUNT[request.node.callspec.params['player_object']]
     assert player_object.is_single_team_player() == (team_count == 1)
     # If a player played for more than one team, he will have a TOT entry for the combined stats
     expected_stat_entries = team_count if team_count <= 1 else team_count + 1
@@ -75,36 +47,6 @@ class TestStatClass:
         assert player_object.stats_df["FGA"].item() == len(df)
         assert len(df["PLAYER_NAME"].value_counts()) == 1
         assert df["EVENT_TYPE"].value_counts()['Made Shot'] == player_object.stats_df["FGM"].item()
-
-    def test_game_logs(self, player_object):
-        try:
-            df = player_object.game_logs.player_game_logs.get_data_frame()
-        except NoStatDashboard as e:
-            pytest.skip(e.message)
-        assert player_object.stats_df["GP"].item() == len(df)
-        stats_to_compare = ["PTS", "REB", "AST", "FGA", "FG3A", "FTA"]
-        # Wrong type identification. Don't know way.
-        # noinspection PyUnresolvedReferences
-        assert (df[stats_to_compare].sum() == player_object.stats_df[stats_to_compare]).all().all()
-
-    def test_shot_dashboard(self, player_object):
-        try:
-            dashboard = player_object.shot_dashboard
-        except NoStatDashboard as e:
-            pytest.skip(e.message)
-        closest_defender_fga = dashboard.closest_defender_shooting.get_data_frame()["FGA"].sum()
-        dribble_fga = dashboard.dribble_shooting.get_data_frame()["FGA"].sum()
-        shot_clock_fga = dashboard.shot_clock_shooting.get_data_frame()["FGA"].sum()
-        touch_time_fga = dashboard.touch_time_shooting.get_data_frame()["FGA"].sum()
-        assert closest_defender_fga == dribble_fga == shot_clock_fga == touch_time_fga
-        # Maybe add == player_object.stats_df["FGA"].item()
-
-    def test_rebound_dashboard(self, player_object):
-        dashboard = player_object.rebound_dashboard
-        shot_distance_rebounding = dashboard.shot_distance_rebounding.get_data_frame()[['C_REB', 'UC_REB']].sum().sum()
-        shot_type_rebounding = dashboard.shot_type_rebounding.get_data_frame()[['C_REB', 'UC_REB']].sum().sum()
-        assert shot_distance_rebounding == shot_type_rebounding
-        # Maybe add == player_object.stats_df["REB"].item()
 
     def test_passing_dashboard(self, player_object):
         if int(player_object.season[:4]) < 2013:
@@ -158,7 +100,7 @@ class TestRegression:
             pytest.skip("Shot charts only works for 1996-1997 season")
 
     def test_teammate_shooting(self, request, player_object):
-        team_count = players_to_team_count[request.node.callspec.params['player_object']]
+        team_count = PLAYERS_TO_TEAM_COUNT[request.node.callspec.params['player_object']]
         if team_count > 1:
             pytest.skip("Test is relevant only for 1 team players")
         try:

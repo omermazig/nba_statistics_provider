@@ -145,6 +145,8 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
 
     @cached_property
     def rebound_dashboard(self) -> Union[PlayerDashPtReb, TeamDashPtReb]:
+        if int(self.season[:4]) < 2013:
+            raise NoStatDashboard(f'No rebound dashboard in {self.season[:4]} - Only since 2013')
         kwargs = {
             'team_id': self.id if self._object_indicator == 'team' else 0,
             'season': self.season,
@@ -181,7 +183,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
 
     @cached_property
     @abc.abstractmethod
-    def stats_df(self):
+    def stats_df(self) -> DataFrame:
         """
 
         :return: The last year that the object existed
