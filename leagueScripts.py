@@ -21,7 +21,7 @@ from pandas import DataFrame
 import playerScripts
 import teamScripts
 import utilsScripts
-from my_exceptions import NoSuchTeam, TooMuchTeams
+from my_exceptions import NoSuchTeam, TooMuchTeams, NoStatDashboard
 from playersContainerScripts import PlayersContainer
 
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
@@ -202,10 +202,12 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             if original_stat_class_dict:
                 self.__dict__[stat_class_name] = original_stat_class_dict
             else:
-                self.__dict__.pop(stat_class_name)
+                self.__dict__.pop(stat_class_name, None)
 
     @cached_property
     def team_stats_classic(self) -> LeagueDashTeamStats:
+        if int(self.season[:4]) < 1996:
+            raise NoStatDashboard(f'No team classic stats in {self.season[:4]} - Only since 1996')
         kwargs = {
             'season': self.season,
         }
