@@ -26,6 +26,18 @@ def test_stat_dict_sanity(player_or_team_object):
 
 class TestStatClass:
 
+    def test_shot_chart(self, player_or_team_object):
+        try:
+            df = player_or_team_object.shot_chart.shot_chart_detail.get_data_frame()
+        except NoStatDashboard as e:
+            pytest.skip(e.message)
+
+        assert np.isclose(player_or_team_object.stats_df["FGA"].item(), len(df), atol=2)
+        assert len(df[f"{player_or_team_object._object_indicator.upper()}_NAME"].value_counts()) == 1
+        assert np.isclose(
+            df["EVENT_TYPE"].value_counts()['Made Shot'], player_or_team_object.stats_df["FGM"].item(), atol=2
+        )
+
     def test_game_logs(self, request, player_or_team_object):
         team_or_player = request.node.callspec.params['player_or_team_object']
         if team_or_player == "team" and int(player_or_team_object.season[:4]) < 1990:

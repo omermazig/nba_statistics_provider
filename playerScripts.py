@@ -189,14 +189,14 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         kwargs = {
             'player_id': self.id
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=CommonPlayerInfo, **kwargs)
+        return self.get_stat_class(stat_class_class_object=CommonPlayerInfo, **kwargs)
 
     @cached_property
     def year_by_year_stats(self) -> PlayerProfileV2:
         kwargs = {
             'player_id': self.id
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=PlayerProfileV2, **kwargs)
+        return self.get_stat_class(stat_class_class_object=PlayerProfileV2, **kwargs)
 
     @cached_property
     def defense_dashboard(self) -> PlayerDashPtShotDefend:
@@ -208,21 +208,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             'team_id': 0,
             'season': self.season,
         }
-        return utilsScripts.get_stat_class(stat_class_class_object=PlayerDashPtShotDefend, **kwargs)
-
-    @cached_property
-    def shot_chart(self) -> ShotChartDetail:
-        if int(self.season[:4]) < 1996:
-            raise NoStatDashboard(f'No shot dashboard in {self.season[:4]} - Only since 2013')
-        kwargs = {
-            'player_id': self.id,
-            # This is to get the results against every team
-            'team_id': 0,
-            'season_nullable': self.season,
-            # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
-            'context_measure_simple': ContextMeasureSimple.fga,
-        }
-        return utilsScripts.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
+        return self.get_stat_class(stat_class_class_object=PlayerDashPtShotDefend, **kwargs)
 
     @cached_property
     def game_logs(self) -> PlayerGameLogs:

@@ -3,12 +3,11 @@ NBATeam object and necessary imports functions and consts
 """
 import os
 from functools import cached_property
-from typing import Optional
+from typing import Optional, Union
 
-from nba_api.stats.endpoints import TeamGameLogs, TeamYearByYearStats, TeamInfoCommon, LeagueDashPtTeamDefend, \
-    ShotChartDetail, CommonTeamRoster, TeamDashPtShots, TeamDashPtReb, TeamDashPtPass, TeamDashLineups, \
-    TeamPlayerOnOffSummary
-from nba_api.stats.library.parameters import ContextMeasureSimple, Season, MeasureTypeDetailedDefense
+from nba_api.stats.endpoints import TeamGameLogs, TeamYearByYearStats, TeamInfoCommon, CommonTeamRoster, \
+    TeamDashPtShots, TeamDashPtReb, TeamDashPtPass, TeamDashLineups, TeamPlayerOnOffSummary
+from nba_api.stats.library.parameters import Season, MeasureTypeDetailedDefense
 from pandas import DataFrame
 
 import gameScripts
@@ -61,19 +60,17 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     An object that represent a single nba team in a single season.
     """
 
-    def __init__(self, name_or_id, season=Season.current_season, initialize_stat_classes=True,
-                 initialize_game_objects=False):
+    def __init__(
+            self, name_or_id: Union[int, str], season: str = Season.current_season,
+            initialize_stat_classes: bool = True, initialize_game_objects: bool = False
+    ):
         """
         NBA team object
 
         :param name_or_id:
-        :type name_or_id: int or str
         :param season: Season to initialize team's data by
-        :type season: str
         :param initialize_stat_classes: Whether to initialize team's stat classes or not (takes a little time)
-        :type initialize_stat_classes: bool
         :return: An NBA team object
-        :rtype : NBATeam
         """
         self.team_name_or_id = name_or_id
         super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
@@ -223,26 +220,6 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     def passing_dashboard(self) -> TeamDashPtPass:
         return super().passing_dashboard
 
-    @cached_property
-    def defense_dashboard(self) -> LeagueDashPtTeamDefend:
-        kwargs = {
-            'team_id_nullable': self.id,
-            'season': self.season,
-        }
-        return self.get_stat_class(stat_class_class_object=LeagueDashPtTeamDefend, **kwargs)
-
-    @cached_property
-    def shot_chart(self) -> ShotChartDetail:
-        kwargs = {
-            'team_id': self.id,
-            # This is to get the results of every player
-            'player_id': 0,
-            'season_nullable': self.season,
-            # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
-            'context_measure_simple': ContextMeasureSimple.fga,
-        }
-        return self.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
-
     def _generate_current_players_objects(self, initialize_stat_classes):
         """
         Returns a list of player objects for players on the team's roster
@@ -336,14 +313,14 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :rtype: float
         """
         pace_def = self.current_league_object.get_league_pace_info()
-        league_pace = (pace_def["POSS"].sum()/pace_def["MIN"].sum())*48
+        league_pace = (pace_def["POSS"].sum() / pace_def["MIN"].sum()) * 48
         team_pace = pace_def[pace_def["TEAM_ID"] == self.id]["PACE"]
-        return league_pace/team_pace
+        return league_pace / team_pace
 
     def get_assist_percentage(self) -> float:
         """ The portion of the team's field goals which was assisted """
         df = self.stats_df
-        return df['AST']/df['FGM']
+        return df['AST'] / df['FGM']
 
 
 if __name__ == "__main__":
