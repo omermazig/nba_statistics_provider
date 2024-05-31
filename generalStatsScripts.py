@@ -6,8 +6,8 @@ import webbrowser
 from contextlib import contextmanager
 from functools import cached_property
 from nba_api.stats.endpoints import PlayerDashPtShots, TeamDashPtShots, PlayerGameLogs, TeamGameLogs, TeamDashPtReb, \
-    PlayerDashPtReb, TeamDashPtPass, PlayerDashPtPass
-from nba_api.stats.library.parameters import SeasonTypePlayoffs
+    PlayerDashPtReb, TeamDashPtPass, PlayerDashPtPass, ShotChartDetail
+from nba_api.stats.library.parameters import SeasonTypePlayoffs, ContextMeasureSimple
 from pandas import DataFrame
 from typing import Union
 
@@ -108,7 +108,6 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             'shot_dashboard',
             'rebound_dashboard',
             'passing_dashboard',
-            'defense_dashboard',
             'year_by_year_stats',
             'shot_chart',
         ]
@@ -119,15 +118,6 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         return utilsScripts.get_stat_class(
             stat_class_class_object, custom_filters, **(kwargs | self._additional_parameters)
         )
-
-    @cached_property
-    def game_logs(self) -> Union[PlayerGameLogs, TeamGameLogs]:
-        kwargs = {
-            f'{self._object_indicator}_id_nullable': self.id,
-            'season_nullable': self.season,
-        }
-        stat_class_class_object = PlayerGameLogs if self._object_indicator == 'player' else TeamGameLogs
-        return self.get_stat_class(stat_class_class_object, **kwargs)
 
     @cached_property
     def shot_dashboard(self) -> Union[PlayerDashPtShots, TeamDashPtShots]:
@@ -172,9 +162,26 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         return self.get_stat_class(stat_class_class_object=stat_class_class_object, **kwargs)
 
     @cached_property
-    @abc.abstractmethod
-    def defense_dashboard(self):
-        pass
+    def shot_chart(self) -> ShotChartDetail:
+        if int(self.season[:4]) < 1996:
+            raise NoStatDashboard(f'No shot dashboard in {self.season[:4]} - Only since 2013')
+        kwargs = {
+            'team_id': self.id if self._object_indicator == "team" else 0,
+            'player_id': self.id if self._object_indicator == "player" else 0,
+            'season_nullable': self.season,
+            # Default value makes it only return FGM, so changed to FGA. Based on - https://stackoverflow.com/a/65628817
+            'context_measure_simple': ContextMeasureSimple.fga,
+        }
+        return self.get_stat_class(stat_class_class_object=ShotChartDetail, **kwargs)
+
+    @cached_property
+    def game_logs(self) -> Union[PlayerGameLogs, TeamGameLogs]:
+        kwargs = {
+            f'{self._object_indicator}_id_nullable': self.id,
+            'season_nullable': self.season,
+        }
+        stat_class_class_object = PlayerGameLogs if self._object_indicator == 'player' else TeamGameLogs
+        return self.get_stat_class(stat_class_class_object, **kwargs)
 
     @cached_property
     @abc.abstractmethod

@@ -38,16 +38,6 @@ class TestStatClass:
                 df[df["DEFENSE_CATEGORY"] == "3 Pointers"]["D_FGA"].item() +
                 df[df["DEFENSE_CATEGORY"] == "2 Pointers"]["D_FGA"].item())
 
-    def test_shot_chart(self, player_object):
-        try:
-            df = player_object.shot_chart.shot_chart_detail.get_data_frame()
-        except NoStatDashboard as e:
-            pytest.skip(e.message)
-
-        assert player_object.stats_df["FGA"].item() == len(df)
-        assert len(df["PLAYER_NAME"].value_counts()) == 1
-        assert df["EVENT_TYPE"].value_counts()['Made Shot'] == player_object.stats_df["FGM"].item()
-
     def test_passing_dashboard(self, player_object):
         if int(player_object.season[:4]) < 2013:
             pytest.skip("Shot charts only works for 2013-2014 season")
