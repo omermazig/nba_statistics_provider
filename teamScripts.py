@@ -108,6 +108,8 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
 
     @cached_property
     def stats_df(self):
+        if int(self.season[:4]) < 1990:
+            raise NoStatDashboard("Team stats are accurate only after about 1990")
         df = self.year_by_year_stats.team_stats.get_data_frame()
         return df[df['YEAR'] == self.season]
 

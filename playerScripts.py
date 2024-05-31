@@ -144,7 +144,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return filtered_list_of_player_stats_dicts
 
     @property
-    def stats_df(self) -> DataFrame:
+    def stats_df(self):
         """
         NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams
         :return: A df that represent the player's basic total stats for the given season
