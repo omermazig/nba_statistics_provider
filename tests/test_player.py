@@ -240,6 +240,9 @@ class TestRegression:
         except NoStatDashboard as e:
             pytest.skip(e.message)
 
-    # def test_aPER(self, player_object):
-    #     aPER = player_object.get_aPER()
-    #     assert aPER
+    def test_aPER(self, player_object):
+        try:
+            aPER = player_object.get_aPER()
+        except NoStatDashboard:
+            pytest.skip("aPER only works for 1996-1997 season")
+        print(aPER)
