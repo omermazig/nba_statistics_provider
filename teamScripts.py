@@ -61,13 +61,13 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
     An object that represent a single nba team in a single season.
     """
 
-    def __init__(self, team_name_or_id, season=Season.current_season, initialize_stat_classes=True,
+    def __init__(self, name_or_id, season=Season.current_season, initialize_stat_classes=True,
                  initialize_game_objects=False):
         """
         NBA team object
 
-        :param team_name_or_id:
-        :type team_name_or_id: int or str
+        :param name_or_id:
+        :type name_or_id: int or str
         :param season: Season to initialize team's data by
         :type season: str
         :param initialize_stat_classes: Whether to initialize team's stat classes or not (takes a little time)
@@ -75,7 +75,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return: An NBA team object
         :rtype : NBATeam
         """
-        self.team_name_or_id = team_name_or_id
+        self.team_name_or_id = name_or_id
         super(NBATeam, self).__init__(season=season, initialize_stat_classes=initialize_stat_classes,
                                       initialize_game_objects=initialize_game_objects)
 
