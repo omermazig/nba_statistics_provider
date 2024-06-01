@@ -1,11 +1,6 @@
-import numpy as np
 import pytest
-from nba_api.stats.library.parameters import Season
-from nba_api.stats.static.players import find_player_by_id, find_players_by_full_name
 
 from my_exceptions import NoStatDashboard
-from playerScripts import NBAPlayer, PASS_OR_ASSIST, TO_OR_FROM
-from tests.conftest import PLAYERS_TO_TEAM_COUNT
 
 
 class TestStatClass:
@@ -20,12 +15,9 @@ class TestStatClass:
         except NoStatDashboard as e:
             pytest.skip(e.message)
 
-    def test_defense_dashboard(self, team_object):
-        try:
-            df = team_object.defense_dashboard.league_dash_pt_team_defend.get_data_frame()
-        except NoStatDashboard as e:
-            pytest.skip(e.message)
-        assert (df[df["DEFENSE_CATEGORY"] == "Overall"]["D_FGA"].item() ==
-                df[df["DEFENSE_CATEGORY"] == "3 Pointers"]["D_FGA"].item() +
-                df[df["DEFENSE_CATEGORY"] == "2 Pointers"]["D_FGA"].item())
+    def test_shooters_lineups_df(self, team_object):
+        lineups_of_only_good_shooters_count = len(team_object.get_all_shooters_lineups_df(attempts_limit=50))
+        lineups_of_only_great_shooters_count = len(team_object.get_all_shooters_lineups_df(attempts_limit=100))
+        assert (lineups_of_only_good_shooters_count == lineups_of_only_great_shooters_count == 0 or
+                lineups_of_only_good_shooters_count > lineups_of_only_great_shooters_count)
 

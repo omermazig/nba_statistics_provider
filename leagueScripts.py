@@ -273,7 +273,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         """
         league_all_shooters_lineups_dicts = []
         for all_shooters_lineups_dict_for_a_team in \
-                [team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit) for team_object in
+                [team_object.get_all_shooters_lineups_df(attempts_limit=attempts_limit) for team_object in
                  self.team_objects_list]:
             league_all_shooters_lineups_dicts += all_shooters_lineups_dict_for_a_team
         return league_all_shooters_lineups_dicts
@@ -288,7 +288,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         """
         league_all_shooters_lineups_dicts = {}
         teams_all_shooters_lineup_dicts = [
-            (team_object.id, team_object.get_all_shooters_lineup_dicts(attempts_limit=attempts_limit)) for
+            (team_object.id, team_object.get_all_shooters_lineups_df(attempts_limit=attempts_limit)) for
             team_object in self.team_objects_list]
         for team_id, team_all_shooters_lineups_dicts in teams_all_shooters_lineup_dicts:
             team_name = teamScripts.teams_name_dict[team_id]

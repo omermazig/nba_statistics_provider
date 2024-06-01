@@ -278,9 +278,12 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         return self.is_player_over_stat_limit(stat_to_check='FGA', limit=limit, only_recent_team=only_recent_team)
 
     def is_three_point_shooter(self, attempts_limit: int = 50, only_recent_team: bool = False) -> bool:
-        return self.is_player_over_stat_limit(
-            stat_to_check='FG3A', limit=attempts_limit, only_recent_team=only_recent_team
-        )
+        try:
+            return self.is_player_over_stat_limit(
+                stat_to_check='FG3A', limit=attempts_limit, only_recent_team=only_recent_team
+            )
+        except NoStatDf:
+            return False
 
     def is_player_over_projected_minutes_limit(self, minutes_limit: int = 1000) -> bool:
         """
