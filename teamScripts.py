@@ -228,6 +228,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return:
         :rtype: list[playerScripts.NBAPlayer]
         """
+        # TODO - Check
         players_objects_list = []
         for row in self.team_roster.common_team_roster.get_data_frame()[["PLAYER", "PLAYER_ID"]].itertuples(
                 index=False):
@@ -277,14 +278,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         )
         return lineups_df[valid_lineups_idx]
 
-    def get_all_shooters_lineup_dicts(self, attempts_limit=50):
-        """
-
-        :param attempts_limit:
-        :type attempts_limit: int
-        :return:
-        :rtype: list[dict]
-        """
+    def get_all_shooters_lineups_df(self, attempts_limit: int = 50) -> DataFrame:
         non_shooter_player_ids = {player_object.id for player_object in self.current_players_objects
                                   if not player_object.is_three_point_shooter(attempts_limit=attempts_limit)}
         all_shooters_lineup_dicts = self.get_filtered_lineup_df(ids_black_list=non_shooter_player_ids)
@@ -298,6 +292,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         :return:
         :rtype: list[NBAGamePlayer]
         """
+        # TODO - Check
         player_all_time_game_logs = [game_log for game_log in self.get_all_time_game_logs()]
         player_all_time_game_objects = [gameScripts.NBAGameTeam(game_log, initialize_stat_classes) for game_log in
                                         player_all_time_game_logs]
@@ -325,11 +320,11 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
 
 if __name__ == "__main__":
     # suns = NBATeam('suns')
-    # only_shooters_suns_lineups = suns.get_all_shooters_lineup_dicts()
+    # only_shooters_suns_lineups = suns.get_all_shooters_lineups_df()
     # suns_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_suns_lineups)
     #
     # bobcats = NBATeam('bobcats')
-    # only_shooters_bobcats_lineups = bobcats.get_all_shooters_lineup_dicts()
+    # only_shooters_bobcats_lineups = bobcats.get_all_shooters_lineups_df()
     # bobcats_all_shooters_advanced_stats = join_advanced_lineup_dicts(only_shooters_bobcats_lineups)
     my_season = '2015-16'
     warriors = NBATeam('warriors', season='2015-16')
