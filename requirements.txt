@@ -2,3 +2,5 @@ ipython
 nba_api
 pandas
 pytest
+numpy
+tqdm

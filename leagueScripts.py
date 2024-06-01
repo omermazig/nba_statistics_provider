@@ -9,6 +9,8 @@ import glob
 import inspect
 import os
 import pickle
+import tqdm
+
 from contextlib import contextmanager
 from functools import cached_property
 from nba_api.stats.endpoints import CommonAllPlayers, LeagueDashTeamStats, SynergyPlayTypes
@@ -65,6 +67,7 @@ class NBALeagues(object):
     """
     Represents multiple accumulated season in the nba.
     """
+    # TODO - Fix
 
     def __init__(self, league_objects=None):
         """
@@ -117,8 +120,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         self.season = season
         self._additional_parameters = {}
         self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
-        self.team_objects_list = []
-        """:type : list[teamScripts.NBATeam]"""
+        self.team_objects_list: list[teamScripts.NBATeam] = []
         self._players_not_on_team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -129,7 +131,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 self.logger.warning("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
-            for i, team_id in enumerate(teamScripts.teams_id_dict.values(), start=1):
+            for team_id in tqdm.tqdm(teamScripts.teams_id_dict.values(), desc="Teams Completed"):
                 team_object = teamScripts.NBATeam(team_id, season=self.season,
                                                   initialize_game_objects=initialize_game_objects)
                 team_object.current_league_object = self
@@ -148,11 +150,8 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                             # noinspection PyUnusedLocal
                             a = player_object.regular_season_game_objects
                 self.team_objects_list.append(team_object)
-                self.logger.info(f'---------------'
-                                 f'Finished {i}/{len(teamScripts.teams_id_dict.values())} of the teams... '
-                                 f'---------------')
-            if initialize_player_objects:
-                self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
+        if initialize_player_objects:
+            self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
 
         self.date = datetime.datetime.now()
 
@@ -227,15 +226,10 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 self.logger.warning(f"Couldn't initialize {stat_class_name} - Maybe it didn't exist in {self.season}")
                 self.logger.error(e, exc_info=True)
 
-    def _initialize_players_not_on_team_objects(self, initialize_game_objects=False):
-        """
-
-        :return:
-        :rtype: None
-        """
+    def _initialize_players_not_on_team_objects(self, initialize_game_objects: bool = False) -> None:
         self.logger.info('Initializing players with no current team...')
         players = CommonAllPlayers(season=self.season, is_only_current_season=1).common_all_players.get_data_frame()
-        players_not_on_team = players[players['ROSTER_STATUS'] == 0]
+        players_not_on_team = players[players['ROSTERSTATUS'] == 0]
         self._players_not_on_team_objects_list = [
             playerScripts.NBAPlayer(player_id, self.season, initialize_game_objects)
             for player_id in players_not_on_team['PERSON_ID']
@@ -421,7 +415,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
 
 
 def main():
-    for year in range(2021, 2012, -1):
+    for year in range(SeasonYear.current_season_year, 2012, -1):
         try:
             current_league_year = NBALeague.get_cached_league_object(season=str(year))
         except FileNotFoundError:
