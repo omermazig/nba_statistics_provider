@@ -241,7 +241,7 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
         return "{name} Object".format(name=self.name)
 
     def initialize_stat_classes(self) -> None:
-        """ Initializing all the classes in goldsberry_object with the id, and setting them under self """
+        """ Initializing all the classes, and setting them under self """
         self.logger.info('Initializing stat classes for %s object..' % self.name)
 
         for stat_class_name in self.get_stat_classes_names():
