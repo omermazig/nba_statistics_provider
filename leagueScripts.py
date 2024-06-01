@@ -27,33 +27,35 @@ from playersContainerScripts import PlayersContainer
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
 
 
-class PlayTypeLeagueAverage(object):
+class PlayTypeLeagueAverage:
     """
     An object that represent the league average points per possession for every play type
     """
 
-    def __init__(self):
+    def __init__(self, season: str = Season.current_season):
         playtype_classes_names = [
             stat_class1 for stat_class1 in dir(PlayType)
             if not (stat_class1.startswith('_') or stat_class1 == "default")
         ]
         for playtype_class_name in playtype_classes_names:
-            value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name, 'offensive')
+            value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name, 'offensive', season)
             setattr(self, playtype_class_name, value)
 
     @staticmethod
     def _get_ppp_league_average_for_specific_play_type(
-            playtype_to_search: str, offensive_or_defensive: Literal['offensive', 'defensive']
+            playtype_to_search: str, offensive_or_defensive: Literal['offensive', 'defensive'], season: str
     ) -> float:
         """
 
         :param playtype_to_search: play type description
         :param offensive_or_defensive: 'offensive' ot 'defensive'
+        :param season: The season to calculate
         :return: PPP for play type
         """
         specific_playtype_df = SynergyPlayTypes(
             type_grouping_nullable=getattr(TypeGroupingNullable, offensive_or_defensive),
-            play_type_nullable=getattr(PlayType, playtype_to_search)
+            play_type_nullable=getattr(PlayType, playtype_to_search),
+            season=season
         ).synergy_play_type.get_data_frame()
         sums = specific_playtype_df[["PTS", "POSS"]].sum(axis=0)
         return sums["PTS"] / sums["POSS"]
