@@ -29,6 +29,14 @@ from playersContainerScripts import PlayersContainer
 league_object_pickle_path_regex = os.path.join(utilsScripts.pickles_folder_path, 'league_object_{season}.pickle')
 
 
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        caller_module = inspect.currentframe().f_back.f_globals['__name__']
+        if module == "__main__":
+            module = caller_module.split('.')[0]
+        return super().find_class(module, name)
+
+
 class PlayTypeLeagueAverage:
     """
     An object that represent the league average points per possession for every play type
@@ -404,14 +412,12 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
 
     @staticmethod
     def get_cached_league_object(season: str = SeasonYear.default) -> 'NBALeague':
-        """
-
-        :param season:
-        :return:
-        """
-        with open(league_object_pickle_path_regex.format(season=season), "rb") as file_to_read:
-            player_objects = pickle.load(file_to_read)
-        return player_objects
+        """ Retrieve a cached NBALeague object for a specific season """
+        pickle_path = league_object_pickle_path_regex.format(season=season)
+        if not os.path.exists(pickle_path):
+            raise FileNotFoundError(f"Pickle file not found: {pickle_path}")
+        with open(pickle_path, "rb") as file_to_read:
+            return CustomUnpickler(file_to_read).load()
 
 
 def main():
