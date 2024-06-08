@@ -754,7 +754,7 @@ if __name__ == "__main__":
         # 'paul pierce',
         # 'carmelo anthony'
     ]
-    selected_season = '2022-23'
+    selected_season = Season.current_season
     for player_name_ in players_names_list:
         nba_player = NBAPlayer(name_or_id=player_name_, season=selected_season)
         nba_player.logger.info(f"Print {nba_player.name} shooting info")
