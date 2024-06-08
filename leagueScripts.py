@@ -95,8 +95,7 @@ class NBALeagues(object):
         :return:
         :rtype: None
         """
-        for cached_season in [league_object_path.strip('.pickle')[-4:] for league_object_path in
-                              glob.glob(utilsScripts.pickles_folder_path + '\*league_object_*')]:
+        for cached_season in utilsScripts.get_all_seasons_of_pickle_files():
             self.league_objects_list.append(NBALeague.get_cached_league_object(cached_season))
 
     def get_function_result_for_all_league_objects(self, func, **kwargs):
@@ -411,7 +410,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             pickle.dump(self, file_to_write_to)
 
     @staticmethod
-    def get_cached_league_object(season: str = SeasonYear.default) -> 'NBALeague':
+    def get_cached_league_object(season: str = Season.default) -> 'NBALeague':
         """ Retrieve a cached NBALeague object for a specific season """
         pickle_path = league_object_pickle_path_regex.format(season=season)
         if not os.path.exists(pickle_path):
@@ -423,7 +422,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
 def main():
     for year in range(SeasonYear.current_season_year, 2012, -1):
         try:
-            current_league_year = NBALeague.get_cached_league_object(season=str(year))
+            current_league_year = NBALeague.get_cached_league_object(season=utilsScripts.get_season_from_year(year))
         except FileNotFoundError:
             current_league_year = None
         # Check if there's a need to update the league's object

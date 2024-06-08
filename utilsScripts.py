@@ -6,6 +6,7 @@ import csv
 import functools
 import logging
 import os
+import re
 import sys
 import time
 from contextlib import contextmanager
@@ -591,3 +592,10 @@ def get_stat_class(stat_class_class_object: type[T], custom_filters: list[tuple[
             stat_class.parameters["CF"] = ":".join("*".join(custom_filter) for custom_filter in custom_filters)
         stat_class.get_request()
     return stat_class
+
+
+def get_all_seasons_of_pickle_files() -> list[str]:
+    pickle_files = os.listdir(pickles_folder_path)
+    pattern = r"league_object_(\d{4}-\d{2}).pickle"
+    years = [re.match(pattern, file_name).group(1) for file_name in pickle_files if re.match(pattern, file_name)]
+    return years

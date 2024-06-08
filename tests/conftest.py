@@ -1,10 +1,12 @@
 import pytest
 from _pytest.fixtures import SubRequest
 
+from leagueScripts import NBALeague
 from playerScripts import NBAPlayer
 from teamScripts import NBATeam
 
 PLAYERS_TO_TEAM_COUNT = {
+    ("Nikola Jokic", '2023-24'): 1,  # MVP
     ("Kevin Durant", '2022-23'): 2,  # Traded once mid-season
     ("Stephen Curry", '2021-22'): 1,  # No trades
     ("Lebron James", '2013-14'): 1,  # Traded twice mid-season
@@ -29,3 +31,14 @@ def player_object(request: SubRequest) -> NBAPlayer:
 @pytest.fixture(scope="module")
 def team_object(player_object) -> NBATeam:
     return player_object.current_team_object
+
+
+@pytest.fixture(scope="module")
+def league_object(player_object) -> NBALeague:
+    return player_object.current_team_object.current_league_object
+
+
+@pytest.fixture(scope="module")
+def cached_league_object(player_object) -> NBALeague:
+    return NBALeague.get_cached_league_object(player_object.season)
+
