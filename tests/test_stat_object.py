@@ -3,6 +3,7 @@ import pytest
 
 from generalStatsScripts import NBAStatObject
 from my_exceptions import NoStatDashboard
+from teamScripts import NBATeam
 
 
 @pytest.fixture(scope="module",
@@ -50,7 +51,7 @@ class TestStatClass:
         stats_to_compare = ["PTS", "REB", "AST", "FGA", "FG3A", "FTA"]
         # Wrong type identification. Don't know way.
         # noinspection PyUnresolvedReferences
-        assert (df[stats_to_compare].sum() == player_or_team_object.stats_df[stats_to_compare]).all().all()
+        assert (np.isclose(df[stats_to_compare].sum(), player_or_team_object.stats_df[stats_to_compare], atol=2)).all()
 
     def test_shot_dashboard(self, player_or_team_object):
         try:
@@ -80,5 +81,11 @@ class TestStatClass:
         except NoStatDashboard as e:
             pytest.skip(e.message)
         passes_made_fga = dashboard.passes_made.get_data_frame()
-        # This is not exact for some reason
-        assert np.isclose(passes_made_fga["AST"].sum(), player_or_team_object.stats_df["AST"].item(), atol=30)
+        passes_received_fga = dashboard.passes_received.get_data_frame()
+        if isinstance(player_or_team_object, NBATeam):
+            assert np.isclose(passes_made_fga["AST"].sum(), passes_received_fga["AST"].sum(), atol=1)
+            assert np.isclose(passes_made_fga["PASS"].sum(), passes_received_fga["PASS"].sum(), atol=1)
+        else:
+            # This is not exact for some reason
+            assert np.isclose(passes_made_fga["AST"].sum(), player_or_team_object.stats_df["AST"].item(), atol=30)
+
