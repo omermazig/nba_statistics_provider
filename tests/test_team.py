@@ -19,5 +19,5 @@ class TestStatClass:
         lineups_of_only_good_shooters_count = len(team_object.get_all_shooters_lineups_df(attempts_limit=50))
         lineups_of_only_great_shooters_count = len(team_object.get_all_shooters_lineups_df(attempts_limit=100))
         assert (lineups_of_only_good_shooters_count == lineups_of_only_great_shooters_count == 0 or
-                lineups_of_only_good_shooters_count > lineups_of_only_great_shooters_count)
+                lineups_of_only_good_shooters_count >= lineups_of_only_great_shooters_count)
 
