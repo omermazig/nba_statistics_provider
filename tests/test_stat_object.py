@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import pytest
 
@@ -14,6 +16,13 @@ def player_or_team_object(request, player_object, team_object) -> NBAStatObject:
         return player_object
     elif request.param == "team":
         return team_object
+
+
+def test_equal(player_or_team_object):
+    player_or_team_deepcopy = deepcopy(player_or_team_object)
+    assert player_or_team_deepcopy == player_or_team_object
+    player_or_team_deepcopy.season = '1789-90'
+    assert not player_or_team_deepcopy == player_or_team_object
 
 
 def test_stat_dict_sanity(player_or_team_object):

@@ -222,22 +222,13 @@ class NBAStatObject(abc.ABC, utilsScripts.Loggable):
             regular_season_game_objects.append(gameScripts.NBAGame(game_log, initialize_stat_classes=True))
         return regular_season_game_objects
 
-    def __cmp__(self, other):
+    def __eq__(self, other: 'NBAStatObject') -> bool:
         """
         The compare between two NBATeam objects is to check whether they have the same team id And the same season
-        :param other:
-        :type other: self
-        :return:
-        :rtype: bool
         """
         return self.id == other.id and self.season == other.season
 
-    def __repr__(self):
-        """
-
-        :return:
-        :rtype: str
-        """
+    def __repr__(self) -> str:
         return "{name} Object".format(name=self.name)
 
     def initialize_stat_classes(self) -> None:
