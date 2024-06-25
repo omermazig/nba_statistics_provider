@@ -9,6 +9,7 @@ import glob
 import inspect
 import os
 import pickle
+import pandas as pd
 import tqdm
 
 from contextlib import contextmanager
@@ -177,8 +178,8 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
     @property
     def current_players_objects(self):
         """
-        A list of generated player objects for all of the players for the given season.
-        This property is compiled by adding all of the players that are on teams (Initialized under self.team_objects
+        A list of generated player objects for all the players for the given season.
+        This property is compiled by adding all the players that are on teams (Initialized under self.team_objects
         int __init__) and the players that are not on teams (Initialized under self._players_not_on_team_objects_list
         in __init__)
         :return:
@@ -266,38 +267,33 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         else:
             return filtered_team_objects_list[0]
 
-    def get_league_all_shooters_lineups_dicts(self, attempts_limit=50):
+    def get_league_all_shooters_lineups(self, attempts_limit: int = 50) -> DataFrame:
         """
         :param attempts_limit: The number of attempted three's a player has to shot to count as a shooter
-        :type attempts_limit: int
-        :return: a list of dicts, where every dict represent a lineup where all of it's participants shot more three's
-        this season then the attempts_limit
-        :rtype: list[dict]
+        :return: a list of dicts, where every dict represent a lineup where all of its participants shot more three's
+        this season than the attempts_limit
         """
-        league_all_shooters_lineups_dicts = []
-        for all_shooters_lineups_dict_for_a_team in \
-                [team_object.get_all_shooters_lineups_df(attempts_limit=attempts_limit) for team_object in
-                 self.team_objects_list]:
-            league_all_shooters_lineups_dicts += all_shooters_lineups_dict_for_a_team
-        return league_all_shooters_lineups_dicts
+        league_all_shooters_lineups_dfs = []
+        for team_object in self.team_objects_list:
+            team_all_shooters_lineups_dfs = team_object.get_all_shooters_lineups_df(attempts_limit=attempts_limit)
+            league_all_shooters_lineups_dfs.append(team_all_shooters_lineups_dfs)
+        league_all_shooters_lineups_df = pd.concat(league_all_shooters_lineups_dfs, ignore_index=True)
+        return league_all_shooters_lineups_df.sort_values(by=['MIN'], ascending=False)
 
-    def get_league_all_shooters_lineups_stats_per_team(self, attempts_limit=50):
+    def get_league_all_shooters_lineups_stats_per_team(self, attempts_limit: int = 50) -> DataFrame:
         """
 
         :param attempts_limit: The number of attempted three's a player has to shot to count as a shooter
-        :type attempts_limit: int
-        :return:
-        :rtype:dict[dict]
+        :return: The cumulative advanced stats for the all shooters lineup, for each team
         """
-        league_all_shooters_lineups_dicts = {}
-        teams_all_shooters_lineup_dicts = [
-            (team_object.id, team_object.get_all_shooters_lineups_df(attempts_limit=attempts_limit)) for
-            team_object in self.team_objects_list]
-        for team_id, team_all_shooters_lineups_dicts in teams_all_shooters_lineup_dicts:
-            team_name = teamScripts.teams_name_dict[team_id]
-            league_all_shooters_lineups_dicts[team_name] = utilsScripts.join_advanced_lineup_df(
-                team_all_shooters_lineups_dicts)
-        return league_all_shooters_lineups_dicts
+        teams_all_shooters_lineup_dicts = {
+            team_object.name:
+                utilsScripts.join_advanced_lineup_df(team_object.get_all_shooters_lineups_df(attempts_limit))
+            for team_object in self.team_objects_list
+        }
+        df = pd.concat(teams_all_shooters_lineup_dicts, names=['Team'])
+        df = df.reset_index(level=0)
+        return df
 
     # noinspection PyPep8Naming
     def get_players_sorted_by_per(self):
@@ -306,6 +302,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :return:
         :rtype: list[(string, float)]
         """
+        # TODO - Fix
         self.logger.info('Getting aPER data...')
         players_name_and_result = []
         aPer_sum = 0
