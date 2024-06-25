@@ -706,10 +706,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         -When player is on the floor WITHOUT the teammate
         """
         # Get the lineups. Important to do this once and pass it, for cases with multiple teammates
-        with self.current_team_object.reinitialize_class_with_new_parameters(
-                'lineups', measure_type_detailed_defense=MeasureTypeDetailedDefense.advanced
-        ):
-            lineups_df = self.current_team_object.lineups.lineups.get_data_frame()
+        lineups_df = self.current_team_object.lineups.lineups.get_data_frame()
 
         teammates_to_stats = {}
         for num_with_player in range(len(teammate_ids) + 1):

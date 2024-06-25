@@ -179,7 +179,8 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
         # TODO - THIS IS WRONG - Because I can only get 250 lineups at a time. Find a way to fix.
         kwargs = {
             'team_id': self.id,
-            'season': self.season
+            'season': self.season,
+            'measure_type_detailed_defense': MeasureTypeDetailedDefense.advanced,
         }
         # custom_filters = [
         #     ("MIN", "LE", "0"),
@@ -267,10 +268,7 @@ class NBATeam(generalStatsScripts.NBAStatObject, PlayersContainer):
             ids_black_list = set()
 
         if lineups_df.empty:
-            with self.reinitialize_class_with_new_parameters(
-                    'lineups', measure_type_detailed_defense=MeasureTypeDetailedDefense.advanced
-            ):
-                lineups_df = self.lineups.lineups.get_data_frame()
+            lineups_df = self.lineups.lineups.get_data_frame()
         valid_lineups_idx = (
             lineups_df.apply(
                 lambda lineup_row: utilsScripts.is_lineup_valid(lineup_row, ids_white_list, ids_black_list), axis=1
