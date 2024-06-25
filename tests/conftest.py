@@ -39,6 +39,6 @@ def league_object(player_object) -> NBALeague:
 
 
 @pytest.fixture(scope="module")
-def cached_league_object(player_object) -> NBALeague:
-    return NBALeague.get_cached_league_object(player_object.season)
+def cached_league_object() -> NBALeague:
+    return NBALeague.get_cached_league_object()
 
