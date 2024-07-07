@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from nba_api.stats.endpoints import CommonAllPlayers, LeagueDashTeamStats, SynergyPlayTypes
 from nba_api.stats.library.parameters import PlayType, Season, SeasonYear, TypeGroupingNullable, \
-    MeasureTypeDetailedDefense
+    MeasureTypeDetailedDefense, PlayerOrTeamAbbreviation
 from typing import Literal
 
 from pandas import DataFrame
@@ -43,31 +43,37 @@ class PlayTypeLeagueAverage:
     An object that represent the league average points per possession for every play type
     """
 
-    def __init__(self, season: str = Season.current_season):
-        playtype_classes_names = [
+    def __init__(
+            self,
+            offensive_or_defensive: Literal['offensive', 'defensive'],
+            player_or_team: Literal['player', 'team'],
+            season: str = Season.current_season
+    ):
+        for playtype_class_name in self.get_playtype_classes_names():
+            specific_playtype_df: DataFrame = SynergyPlayTypes(
+                type_grouping_nullable=getattr(TypeGroupingNullable, offensive_or_defensive),
+                player_or_team_abbreviation=getattr(PlayerOrTeamAbbreviation, player_or_team),
+                play_type_nullable=getattr(PlayType, playtype_class_name),
+                season=season
+            ).synergy_play_type.get_data_frame()
+            if not specific_playtype_df.empty:
+                value = self._get_ppp_league_average_for_specific_play_type(specific_playtype_df)
+                setattr(self, playtype_class_name, value)
+
+    @staticmethod
+    def get_playtype_classes_names() -> list[str]:
+        return [
             stat_class1 for stat_class1 in dir(PlayType)
             if not (stat_class1.startswith('_') or stat_class1 == "default")
         ]
-        for playtype_class_name in playtype_classes_names:
-            value = self._get_ppp_league_average_for_specific_play_type(playtype_class_name, 'offensive', season)
-            setattr(self, playtype_class_name, value)
 
     @staticmethod
-    def _get_ppp_league_average_for_specific_play_type(
-            playtype_to_search: str, offensive_or_defensive: Literal['offensive', 'defensive'], season: str
-    ) -> float:
+    def _get_ppp_league_average_for_specific_play_type(specific_playtype_df: DataFrame) -> float:
         """
 
-        :param playtype_to_search: play type description
-        :param offensive_or_defensive: 'offensive' ot 'defensive'
-        :param season: The season to calculate
+        :param specific_playtype_df: a dataframe for a specific playtype for a player/team
         :return: PPP for play type
         """
-        specific_playtype_df = SynergyPlayTypes(
-            type_grouping_nullable=getattr(TypeGroupingNullable, offensive_or_defensive),
-            play_type_nullable=getattr(PlayType, playtype_to_search),
-            season=season
-        ).synergy_play_type.get_data_frame()
         sums = specific_playtype_df[["PTS", "POSS"]].sum(axis=0)
         return sums["PTS"] / sums["POSS"]
 
@@ -134,7 +140,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             self.initialize_stat_classes()
             self.logger.info('Initializing league playtypes...')
             try:
-                self.playtype = PlayTypeLeagueAverage()
+                self.playtype = PlayTypeLeagueAverage('offensive', 'team')
             except Exception as e:
                 self.logger.warning("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
