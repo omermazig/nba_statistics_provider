@@ -119,15 +119,13 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return df[df['TEAM_ID'] != 0].tail(1)['TEAM_ID'].item()
 
     @staticmethod
-    def _get_relevant_stat_dict_for_list_of_stat_dicts(stats_df) -> Optional[DataFrame]:
+    def _get_relevant_stat_dict_for_list_of_stat_dicts(stats_df) -> DataFrame:
         """
         NOTE: If a player had more then 1 team in season, the stats dict will be for his combined stats from all teams.
         :return: A dict that represent the player's basic total stats for the given season
         """
         num_of_matching_dicts = len(stats_df)
-        if num_of_matching_dicts == 0:
-            return None
-        elif num_of_matching_dicts == 1:
+        if num_of_matching_dicts <= 1:
             return stats_df
         else:
             return stats_df[stats_df['TEAM_ABBREVIATION'] == 'TOT']
@@ -246,7 +244,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             return False
         else:
             inside_shots = shot_df[shot_df['SHOT_TYPE'] == 'Less than 10 ft']['FGA_FREQUENCY'].item()
-            if self.stats_df is not None:
+            if not self.stats_df.empty:
                 number_of_total_fga = self.stats_df["FGA"].item()
                 number_of_outside_shots = number_of_total_fga - inside_shots
                 return number_of_outside_shots > limit
@@ -263,7 +261,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
         """
         stat_dict = utilsScripts.get_most_recent_stat_dict(
             self._players_all_stats_dicts) if only_recent_team else self.stats_df
-        if stat_dict is not None:
+        if not stat_dict.empty:
             return stat_dict[stat_to_check].item() > limit
         else:
             raise NoStatDf(f'No stat df for {self.name}')
@@ -485,7 +483,7 @@ class NBAPlayer(generalStatsScripts.NBAStatObject):
             raise PlayerHasNoTeam('{player_name} has no team (and therefore no teammates) at the moment'.format(
                 player_name=self.name))
 
-        if self.stats_df is not None:
+        if not self.stats_df.empty:
             player_fgm = self.stats_df["FGM"].item()
             player_fg3m = self.stats_df["FG3M"].item()
             player_fga = self.stats_df["FGA"].item()
