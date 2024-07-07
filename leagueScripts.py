@@ -127,8 +127,8 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         super().__init__()
         self.season = season
         self._additional_parameters = {}
-        self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season[:4])
-        self.team_objects_list: list[teamScripts.NBATeam] = []
+        self.league_object_pickle_path = league_object_pickle_path_regex.format(season=self.season)
+        self._team_objects_list: list[teamScripts.NBATeam] = []
         self._players_not_on_team_objects_list = []
         if initialize_stat_classes:
             self.initialize_stat_classes()
@@ -139,25 +139,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
                 self.logger.warning("Couldn't initialize playtype data - %s" % e)
         # Warning - Takes a LONG time - A few hours
         if initialize_team_objects:
-            for team_id in tqdm.tqdm(teamScripts.teams_id_dict.values(), desc="Teams Completed"):
-                team_object = teamScripts.NBATeam(team_id, season=self.season,
-                                                  initialize_game_objects=initialize_game_objects)
-                team_object.current_league_object = self
-                # Cache player_stats_dict objects. a is unused
-                # noinspection PyUnusedLocal
-                a = team_object.stats_df
-                if initialize_player_objects:
-                    for player_object in team_object.current_players_objects:
-                        player_object.initialize_stat_classes()
-                        # Cache player_stats_dict objects. a is unused
-                        # noinspection PyUnusedLocal
-                        a = player_object.stats_df
-                        if initialize_game_objects:
-                            self.logger.info('Initializing players game objects for %s object..' % player_object.name)
-                            # Cache game objects. a is unused
-                            # noinspection PyUnusedLocal
-                            a = player_object.regular_season_game_objects
-                self.team_objects_list.append(team_object)
+            self._initialize_team_objects(initialize_stat_classes, initialize_player_objects, initialize_game_objects)
         if initialize_player_objects:
             self._initialize_players_not_on_team_objects(initialize_game_objects=initialize_game_objects)
 
@@ -186,6 +168,16 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         :rtype:list[playerScripts.NBAPlayer]
         """
         return self.players_on_teams_objects_list + self._players_not_on_team_objects_list
+
+    @property
+    def team_objects_list(self):
+        # TODO - Make a set
+        if not self._team_objects_list:
+            raise ValueError(
+                "You're trying to use `team_objects_list` object, but you didn't initialize it. "
+                "You need to initialize the object with `initialize_team_objects = True`"
+            )
+        return self._team_objects_list
 
     @staticmethod
     def get_stat_classes_names() -> list[str]:
@@ -233,6 +225,31 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
             except ValueError as e:
                 self.logger.warning(f"Couldn't initialize {stat_class_name} - Maybe it didn't exist in {self.season}")
                 self.logger.error(e, exc_info=True)
+
+    def _initialize_team_objects(
+            self, initialize_stat_classes=True, initialize_player_objects=False, initialize_game_objects=False
+    ):
+        for team_id in tqdm.tqdm(teamScripts.teams_id_dict.values(), desc="Teams Completed"):
+            team_object = teamScripts.NBATeam(
+                team_id, season=self.season,
+                initialize_stat_classes=initialize_stat_classes, initialize_game_objects=initialize_game_objects
+            )
+            team_object.current_league_object = self
+            # Cache player_stats_dict objects. a is unused
+            # noinspection PyUnusedLocal
+            a = team_object.stats_df
+            if initialize_player_objects:
+                for player_object in team_object.current_players_objects:
+                    player_object.initialize_stat_classes()
+                    # Cache player_stats_dict objects. a is unused
+                    # noinspection PyUnusedLocal
+                    a = player_object.stats_df
+                    if initialize_game_objects:
+                        self.logger.info('Initializing players game objects for %s object..' % player_object.name)
+                        # Cache game objects. a is unused
+                        # noinspection PyUnusedLocal
+                        a = player_object.regular_season_game_objects
+            self._team_objects_list.append(team_object)
 
     def _initialize_players_not_on_team_objects(self, initialize_game_objects: bool = False) -> None:
         self.logger.info('Initializing players with no current team...')
@@ -383,7 +400,7 @@ class NBALeague(utilsScripts.Loggable, PlayersContainer):
         ):
             df = self.team_stats_classic.league_dash_team_stats.get_data_frame()
         pace_df = df[['TEAM_ID', 'POSS', 'MIN']].copy()
-        pace_df['PACE'] = (pace_df["POSS"]/pace_df["MIN"]) * 48
+        pace_df['PACE'] = (pace_df["POSS"] / pace_df["MIN"]) * 48
         return pace_df
 
     def print_league_playtype_point_per_possession(self):
