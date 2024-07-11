@@ -1,6 +1,6 @@
 import pytest
 
-from leagueScripts import NBALeague
+from leagueScripts import NBALeague, PlayTypeLeagueAverage
 from my_exceptions import NoStatDashboard
 from utilsScripts import get_all_seasons_of_pickle_files
 
@@ -33,3 +33,8 @@ def test_league_shooters_lineups_stats_per_team(cached_league_object):
     great_shooters_lineups = cached_league_object.get_league_all_shooters_lineups_stats_per_team(attempts_limit=300)
     great_shooters_lineups_minutes = great_shooters_lineups['TOTAL_MIN'].sum()
     assert good_shooters_lineups_minutes >= great_shooters_lineups_minutes
+
+
+def test_playtype(cached_league_object):
+    assert (cached_league_object.playtype.transition ==
+            PlayTypeLeagueAverage('offensive', 'team', season=cached_league_object.season).transition)
